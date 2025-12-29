@@ -28,6 +28,7 @@ dist-ssr
 /build
 /out
 database
+/src/database_test/*.db
 /src/database/*.db
 
 # OS
