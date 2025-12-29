@@ -137,8 +137,9 @@ function setupIpcHandlers() {
   // Task handlers
   ipcMain.handle(
     "db-create-task",
-    async (event, projectId, name, description) => {
-      return db.createTask(projectId, name, description);
+    async (event, taskData) => {
+      console.log("Creating task with data:", taskData);
+      return db.createTask(taskData);
     }
   );
 

@@ -1,14 +1,15 @@
+const { extractSubTasks } = require("../utils/golden");
 const Database = require("better-sqlite3");
 const path = require("path");
 const fs = require("fs");
-const { app } = require('electron');
+const { app } = require("electron");
 
 class DatabaseService {
   constructor() {
     try {
       // For testing: Create database in the user data directory
-      const dbDir = path.join(__dirname, '../database');
-      const dbPath = path.join(dbDir, 'timetracker.db');
+      const dbDir = path.join(__dirname, "../database");
+      const dbPath = path.join(dbDir, "timetracker.db");
 
       //production
       // const userDataPath = app.getPath("userData");
@@ -19,11 +20,9 @@ class DatabaseService {
       if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
       }
-
-      console.log("Database path:", dbPath);
+      // Initialize database connection
       this.db = new Database(dbPath);
       this.initializeTables();
-      console.log("Database initialized successfully");
     } catch (error) {
       console.error("Error initializing database:", error);
       throw error;
@@ -50,11 +49,29 @@ class DatabaseService {
         project_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         description TEXT,
-        status TEXT DEFAULT 'active',
+        status TEXT DEFAULT 'todo',
+        started_at DATETIME,
+        ended_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
       )
+    `);
+
+    // Create sub_tasks table
+    this.db.exec(`
+        CREATE TABLE IF NOT EXISTS sub_tasks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          task_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          status TEXT DEFAULT 'todo',
+          duration INTEGER, -- duration in minutes (or seconds, your choice)
+          started_at DATETIME,
+          ended_at DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
+        )
     `);
 
     // Create time_entries table
@@ -128,30 +145,70 @@ class DatabaseService {
   }
 
   // Task methods
-  createTask(projectId, name, description = "") {
+  createTask(taskData) {
+    const { projectId, name, description, subTasks, status } = taskData;
+    //create task
     const stmt = this.db.prepare(`
-      INSERT INTO tasks (project_id, name, description)
-      VALUES (?, ?, ?)
+      INSERT INTO tasks (project_id, name, description, status)
+      VALUES (?, ?, ?, ?)
     `);
-    const result = stmt.run(projectId, name, description);
-    return this.getTask(result.lastInsertRowid);
+    const result = stmt.run(projectId, name, description, status);
+    const taskId = result.lastInsertRowid;
+
+    //create subTasks
+    const subTaskList = extractSubTasks(subTasks);
+    subTaskList.forEach((subTaskName) => {
+      this.createSubTask({
+        taskId: taskId,
+        name: subTaskName,
+      });
+    });
+
+    return true;
   }
 
   getTasks(projectId = null) {
     let query = `
-      SELECT t.*, p.name as project_name, p.color as project_color,
-             COALESCE(SUM(te.duration), 0) as total_time,
-             COUNT(te.id) as time_entry_count
-      FROM tasks t
-      JOIN projects p ON t.project_id = p.id
-      LEFT JOIN time_entries te ON t.id = te.task_id
-    `;
+              SELECT
+                t.*,
+                p.name AS project_name,
+                p.color AS project_color,
+
+                COALESCE(SUM(te.duration), 0) AS total_time,
+                COUNT(DISTINCT te.id) AS time_entry_count,
+
+                COALESCE(
+                  json_group_array(
+                    DISTINCT json_object(
+                      'id', st.id,
+                      'task_id', st.task_id,
+                      'name', st.name,
+                      'status', st.status,
+                      'duration', st.duration,
+                      'created_at', st.created_at,
+                      'updated_at', st.updated_at
+                    )
+                  ),
+                  '[]'
+                ) AS sub_tasks
+
+              FROM tasks t
+              JOIN projects p ON t.project_id = p.id
+              LEFT JOIN time_entries te ON t.id = te.task_id
+              LEFT JOIN sub_tasks st ON t.id = st.task_id
+            `;
+
+    const params = [];
 
     if (projectId) {
-      query += " WHERE t.project_id = ?";
+      query += ` WHERE t.project_id = ?`;
+      params.push(projectId);
     }
 
-    query += " GROUP BY t.id ORDER BY t.created_at DESC";
+    query += `
+      GROUP BY t.id
+      ORDER BY t.created_at DESC
+    `;
 
     const stmt = this.db.prepare(query);
     return projectId ? stmt.all(projectId) : stmt.all();
@@ -184,6 +241,22 @@ class DatabaseService {
   deleteTask(id) {
     const stmt = this.db.prepare("DELETE FROM tasks WHERE id = ?");
     return stmt.run(id);
+  }
+
+  // Sub-task methods
+  createSubTask(subTaskData) {
+    try {
+      const { taskId, name } = subTaskData;
+      const stmt = this.db.prepare(`
+        INSERT INTO sub_tasks (task_id, name)
+        VALUES (?, ?)
+      `);
+      const result = stmt.run(taskId, name);
+      return result.lastInsertRowid;
+    } catch (error) {
+      console.error("Error creating sub-task:", error);
+      return null;
+    }
   }
 
   // Time entry methods

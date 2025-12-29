@@ -5,53 +5,6 @@ import ProjectCard from './ProjectList/ProjectCard.jsx';
 
 function ProjectList({ projects, onProjectSelect, onRefresh }) {
   const [selectedProject, setSelectedProject] = useState(null);
-  const [showMenu, setShowMenu] = useState(null);
-  const [editingProject, setEditingProject] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', color: '#f59e0b' });
-
-  const handleEdit = (project) => {
-    setEditingProject(project.id);
-    setEditForm({
-      name: project.name,
-      description: project.description || '',
-      color: project.color || '#f59e0b',
-      created_at: project.created_at,
-      updated_at: project.updated_at
-    });
-    setShowMenu(null);
-  };
-
-  const handleSaveEdit = async () => {
-    try {
-      await window.electronAPI.db.updateProject(editingProject, editForm);
-      setEditingProject(null);
-      onRefresh();
-    } catch (error) {
-      console.error('Error updating project:', error);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingProject(null);
-    setEditForm({ name: '', description: '', color: '#f59e0b' });
-  };
-
-  const handleDelete = async (projectId) => {
-    if (window.confirm('Are you sure you want to delete this project? This will also delete all associated tasks and time entries.')) {
-      try {
-        await window.electronAPI.db.deleteProject(projectId);
-        onRefresh();
-        setShowMenu(null);
-      } catch (error) {
-        console.error('Error deleting project:', error);
-      }
-    }
-  };
-
-  const colorOptions = [
-    '#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6',
-    '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#6b7280'
-  ];
 
   return (
     <div className="space-y-6">
@@ -74,17 +27,10 @@ function ProjectList({ projects, onProjectSelect, onRefresh }) {
             <ProjectCard 
               key={`project-cards-${project.id}`}
               project={project}
+              onProjectSelect={onProjectSelect}
             />
           ))}
         </div>
-      )}
-      
-      {/* Click outside to close menu */}
-      {showMenu && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => setShowMenu(null)}
-        />
       )}
     </div>
   );

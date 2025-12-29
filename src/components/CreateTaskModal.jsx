@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X } from 'lucide-react';
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
 function CreateTaskModal({ project, onClose, onTaskCreated }) {
+  const subTaskQuillRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    status: 'active'
+    subTasks: '',
+    status: 'todo'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -21,11 +23,14 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
     setIsSubmitting(true);
 
     try {
-      await window.electronAPI.db.createTask(
-        project.id,
-        formData.name.trim(),
-        formData.description.trim()
-      );
+      const taskData = {
+        projectId: project.id,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        subTasks: formData.subTasks.trim(),
+        status: formData.status
+      }
+      await window.electronAPI.db.createTask({ taskData: taskData });
       onTaskCreated();
     } catch (error) {
       console.error('Error creating task:', error);
@@ -33,26 +38,33 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
       setIsSubmitting(false);
     }
   };
-
   const taskStatusOptions = [
-    { value: 'active', label: 'Active' },
+    { value: 'todo', label: 'Todo' },
+    { value: 'ongoing', label: 'Ongoing' },
     { value: 'completed', label: 'Completed' },
     { value: 'paused', label: 'Paused' },
     { value: 'archived', label: 'Archived' }
   ];
-
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  useEffect(() => {
+    if (subTaskQuillRef.current) {
+      const quill = subTaskQuillRef.current.getEditor();
+      // Activate ordered list
+      quill.format("list", "ordered");
+    }
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
+          <div className='flex flex-row'>
             <h2 className="text-xl font-semibold text-gray-900">Create New Task</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              in <span className="font-medium">{project.name}</span>
+            <p className="pl-2 text-sm text-emerald-600 mt-1">
+              for <span className="font-medium">{project.name}</span>
             </p>
           </div>
           <button
@@ -66,7 +78,7 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Task Name *
+              Task Title <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -78,15 +90,27 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
               autoFocus
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Descriptionssssdsss
+              Description
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              placeholder="Enter task description"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500 focus:border-transparent"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sub Tasks
             </label>
             <ReactQuill
+              ref={subTaskQuillRef}
               theme="snow"
-              value={formData.description}
-              onChange={(value) => handleChange('description', value)}
+              value={formData.subTasks}
+              onChange={(value) => handleChange('subTasks', value)}
               placeholder="Start typing..."
               modules={{
                 toolbar: [
@@ -107,7 +131,7 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
             >
               {
                 taskStatusOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={`status-option-${option.value}`} value={option.value}>{option.label}</option>
                 ))
               }
             </select>
@@ -125,7 +149,8 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
             <button
               type="submit"
               disabled={!formData.name.trim() || isSubmitting}
-              className="px-6 py-2 bg-golden-500 hover:bg-golden-600 disabled:bg-gray-400 text-white rounded-md transition-colors"
+              className="px-6 py-2 bg-golden-500 hover:bg-golden-600 disabled:bg-gray-400
+                disabled:cursor-not-allowed text-white rounded-md transition-colors"
             >
               {isSubmitting ? 'Creating...' : 'Create Task'}
             </button>

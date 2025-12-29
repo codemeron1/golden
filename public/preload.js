@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteProject: (id) => ipcRenderer.invoke('db-delete-project', id),
     
     // Tasks
-    createTask: (projectId, name, description) => ipcRenderer.invoke('db-create-task', projectId, name, description),
+    createTask: ({taskData}) => ipcRenderer.invoke('db-create-task', taskData),
     getTasks: (projectId) => ipcRenderer.invoke('db-get-tasks', projectId),
     getTask: (id) => ipcRenderer.invoke('db-get-task', id),
     updateTask: (id, updates) => ipcRenderer.invoke('db-update-task', id, updates),

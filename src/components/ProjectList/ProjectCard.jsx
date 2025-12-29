@@ -1,19 +1,62 @@
 import { useState } from 'react';
 import { Clock, CheckSquare, Edit2, Trash2, MoreVertical } from 'lucide-react';
-import { formatDurationShort } from '@/utils/timeUtils';
-export default function ProjectList({
-  project
+import { formatDurationShort, formatShortDate } from '@/utils/timeUtils';
+export default function ProjectCard({
+  project,
+  onProjectSelect
 }) {
-  const [editingProject, setEditingProject] = useState(null);
   const [showMenu, setShowMenu] = useState(null);
+  const [editingProject, setEditingProject] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '', color: '#f59e0b' });
 
-  return (
+  const handleEdit = (project) => {
+    setEditingProject(project.id);
+    setEditForm({
+      name: project.name,
+      description: project.description || '',
+      color: project.color || '#f59e0b',
+      created_at: project.created_at,
+      updated_at: project.updated_at
+    });
+    setShowMenu(null);
+  };
+  const handleSaveEdit = async () => {
+    try {
+      await window.electronAPI.db.updateProject(editingProject, editForm);
+      setEditingProject(null);
+      onRefresh();
+    } catch (error) {
+      console.error('Error updating project:', error);
+    }
+  };
+  const handleCancelEdit = () => {
+    setEditingProject(null);
+    setEditForm({ name: '', description: '', color: '#f59e0b' });
+  };
+  const handleDelete = async (projectId) => {
+    if (window.confirm('Are you sure you want to delete this project? This will also delete all associated tasks and time entries.')) {
+      try {
+        await window.electronAPI.db.deleteProject(projectId);
+        onRefresh();
+        setShowMenu(null);
+      } catch (error) {
+        console.error('Error deleting project:', error);
+      }
+    }
+  };
+
+  const colorOptions = [
+    '#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6',
+    '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#6b7280'
+  ];
+
+  return (<>
+
     <div
-      key={project.id}
       className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
     >
       {editingProject === project.id ? (
-        // Edit form
+        // edit form
         <div className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -49,8 +92,8 @@ export default function ProjectList({
                   key={color}
                   onClick={() => setEditForm({ ...editForm, color })}
                   className={`w-8 h-8 rounded-full border-2 ${editForm.color === color
-                      ? 'border-gray-800 ring-2 ring-offset-2 ring-gray-400'
-                      : 'border-gray-300'
+                    ? 'border-gray-800 ring-2 ring-offset-2 ring-gray-400'
+                    : 'border-gray-300'
                     }`}
                   style={{ backgroundColor: color }}
                 />
@@ -74,17 +117,20 @@ export default function ProjectList({
           </div>
         </div>
       ) : (
-        // Project card
+        // project card
         <>
-          <div className="p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div
-                  className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: project.color }}
-                />
-                <h3 className="text-lg font-semibold text-gray-900">
+          <div className="relative p-6">
+            <div
+              className="absolute left-0 top-0 w-full h-4 rounded-t-lg opacity-60"
+              style={{ backgroundColor: project.color }}
+            />
+            <div className=" flex items-start justify-between mb-4">
+              <div className="flex flex-col justify-center">
+                <h3 className="text-lg font-semibold text-gray-900 mb-0 pb-0">
                   {project.name}
+                </h3>
+                <h3 className="text-sm font-normal text-gray-600 pt-0 mt-0">
+                  Date Started: {formatShortDate(project.created_at)}
                 </h3>
               </div>
 
@@ -138,13 +184,24 @@ export default function ProjectList({
 
             <button
               onClick={() => onProjectSelect(project)}
-              className="w-full bg-golden-500 hover:bg-golden-600 text-white py-2 px-4 rounded-md transition-colors"
+              className="w-full bg-golden-500 hover:bg-golden-600 text-white py-2 px-4 mt-5 mb-2 rounded-md transition-colors"
             >
               View Tasks
             </button>
+
+            <span className='py-2 text-sm text-gray-500'>Last update: {formatShortDate(project.updated_at)}</span>
           </div>
         </>
       )}
     </div>
+
+    {/* Click outside to close menu */}
+    {showMenu && (
+      <div
+        className="fixed inset-0 z-0"
+        onClick={() => setShowMenu(null)}
+      />
+    )}
+  </>
   )
 }

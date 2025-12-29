@@ -51,3 +51,8 @@ export function calculateDuration(startTime, endTime) {
   const end = new Date(endTime);
   return Math.floor((end - start) / 1000);
 }
+
+export function formatShortDate(dateString) {
+  if (!dateString) return '';
+  return format(new Date(dateString), 'MMMM d, yyyy');
+}
