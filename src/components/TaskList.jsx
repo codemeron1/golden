@@ -1,6 +1,26 @@
 import { useState } from 'react';
 import { CheckSquare, Clock, Play, Edit2, Trash2, MoreVertical } from 'lucide-react';
 import { formatDurationShort, formatTime } from '../utils/timeUtils';
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+
+function SubTaskCard({subTask}) {
+  const [isChecked, setIsChecked] = useState(false);
+  
+  return (
+    <div className="flex items-center space-x-2">
+      <input
+        type="checkbox"
+        checked={isChecked}
+        onChange={(e) => setIsChecked(e.target.checked)}
+        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+      />
+      <p className={`text-sm flex-1 ${isChecked ? 'line-through text-gray-400' : 'text-gray-600'}`}>
+        {subTask}
+      </p>
+    </div>
+  );
+}
 
 function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
   const [showMenu, setShowMenu] = useState(null);
@@ -63,12 +83,21 @@ function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
       paused: 'bg-yellow-100 text-yellow-800',
       archived: 'bg-gray-100 text-gray-800'
     };
-    
+
     return (
       <span className={`px-2 py-1 text-xs rounded-full ${statusStyles[status] || statusStyles.active}`}>
         {status}
       </span>
     );
+  };
+
+  const extractSubTasks = (taskDescription) => {
+    const removeValues = ['<ol>', '<li>',  '</ol>'];
+    const regex = new RegExp(removeValues.join('|'), 'g');
+    let taskArray = taskDescription.replace(regex, "").split("</li>");
+    let taskArrayRemovedBlank = taskArray.filter((task) => task !== '');
+
+    return taskArrayRemovedBlank;
   };
 
   return (
@@ -80,7 +109,7 @@ function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
           </h2>
           <p className="text-gray-600">{tasks.length} tasks</p>
         </div>
-        
+
         {project && (
           <div className="flex items-center space-x-2">
             <div
@@ -121,19 +150,24 @@ function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
+                      Sub-Tasks
                     </label>
-                    <textarea
+                    <ReactQuill
+                      theme="snow"
                       value={editForm.description}
-                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      rows="3"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500"
+                      onChange={(value) => setEditForm({ ...editForm, description: value })}
+                      placeholder="Start typing..."
+                      modules={{
+                        toolbar: [
+                          [{ list: "ordered" }]
+                        ],
+                      }}
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Status
@@ -149,7 +183,7 @@ function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
                       <option value="archived">Archived</option>
                     </select>
                   </div>
-                  
+
                   <div className="flex justify-end space-x-2 pt-2">
                     <button
                       onClick={handleCancelEdit}
@@ -176,85 +210,92 @@ function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
                         </h3>
                         {getStatusBadge(task.status)}
                       </div>
-                      
+
                       {task.description && (
-                        <p className="text-gray-600 text-sm mb-3">{task.description}</p>
+                        <div className='py-4'>
+                          {
+                            extractSubTasks(task.description).map((subTask, index) => <SubTaskCard key={index} subTask={subTask} />)
+                          }
+                        </div>
                       )}
-                      
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <div className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4" />
-                          <span>{formatDurationShort(task.total_time)}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <CheckSquare className="h-4 w-4" />
-                          <span>{task.time_entry_count} entries</span>
-                        </div>
-                        <span>Created {formatTime(task.created_at)}</span>
+
+                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <div className="flex items-center space-x-1">
+                        <Clock className="h-4 w-4" />
+                        <span>{formatDurationShort(task.total_time)}</span>
                       </div>
+                      <div className="flex items-center space-x-1">
+                        <CheckSquare className="h-4 w-4" />
+                        <span>{task.time_entry_count} entries</span>
+                      </div>
+                      <span>Created {formatTime(task.created_at)}</span>
                     </div>
-                    
-                    <div className="flex items-center space-x-2 ml-4">
+                  </div>
+
+                  <div className="flex items-center space-x-2 ml-4">
+                    <button
+                      onClick={() => handleQuickStart(task)}
+                      className="flex items-center space-x-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-md transition-colors"
+                      title="Quick Start Timer"
+                    >
+                      <Play className="h-4 w-4" />
+                      <span>Start</span>
+                    </button>
+
+                    <button
+                      onClick={() => onTaskSelect(task)}
+                      className="bg-golden-500 hover:bg-golden-600 text-white px-4 py-2 rounded-md transition-colors"
+                    >
+                      Track Time
+                    </button>
+
+                    <div className="relative">
                       <button
-                        onClick={() => handleQuickStart(task)}
-                        className="flex items-center space-x-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-md transition-colors"
-                        title="Quick Start Timer"
+                        onClick={() => setShowMenu(showMenu === task.id ? null : task.id)}
+                        className="p-2 rounded-full hover:bg-gray-100 transition-colors"
                       >
-                        <Play className="h-4 w-4" />
-                        <span>Start</span>
+                        <MoreVertical className="h-4 w-4 text-gray-500" />
                       </button>
-                      
-                      <button
-                        onClick={() => onTaskSelect(task)}
-                        className="bg-golden-500 hover:bg-golden-600 text-white px-4 py-2 rounded-md transition-colors"
-                      >
-                        Track Time
-                      </button>
-                      
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowMenu(showMenu === task.id ? null : task.id)}
-                          className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                        >
-                          <MoreVertical className="h-4 w-4 text-gray-500" />
-                        </button>
-                        
-                        {showMenu === task.id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                            <button
-                              onClick={() => handleEdit(task)}
-                              className="flex items-center space-x-2 w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                              <span>Edit Task</span>
-                            </button>
-                            <button
-                              onClick={() => handleDelete(task.id)}
-                              className="flex items-center space-x-2 w-full px-4 py-2 text-left text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span>Delete Task</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
+
+                      {showMenu === task.id && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                          <button
+                            onClick={() => handleEdit(task)}
+                            className="flex items-center space-x-2 w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                            <span>Edit Task</span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(task.id)}
+                            className="flex items-center space-x-2 w-full px-4 py-2 text-left text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete Task</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
-          ))}
+                </div>
+          )}
         </div>
-      )}
-      
-      {/* Click outside to close menu */}
-      {showMenu && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => setShowMenu(null)}
-        />
-      )}
+      ))}
     </div>
+  )
+}
+
+{/* Click outside to close menu */ }
+{
+  showMenu && (
+    <div
+      className="fixed inset-0 z-0"
+      onClick={() => setShowMenu(null)}
+    />
+  )
+}
+    </div >
   );
 }
 

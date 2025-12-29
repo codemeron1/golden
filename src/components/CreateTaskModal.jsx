@@ -83,13 +83,6 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Descriptionssssdsss
             </label>
-            {/* <textarea
-              value={formData.description}
-              onChange={(e) => handleChange('description', e.target.value)}
-              placeholder="Optional task description"
-              rows="3"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500 focus:border-transparent"
-            /> */}
             <ReactQuill
               theme="snow"
               value={formData.description}
@@ -97,11 +90,7 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
               placeholder="Start typing..."
               modules={{
                 toolbar: [
-                  [{ header: [1, 2, 3, false] }],
-                  ["bold", "italic", "underline", "strike"],
-                  [{ list: "ordered" }, { list: "bullet" }],
-                  ["link", "image"],
-                  ["clean"],
+                  [{ list: "ordered" }]
                 ],
               }}
             />

@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const isDev = process.env.NODE_ENV === "development";
+const isDev = "development";
 
 // Import database service
 const DatabaseService = require("../src/services/database.js");
@@ -22,8 +22,14 @@ function createWindow() {
   });
 
   // Load the app
-  mainWindow.loadURL("http://localhost:5176");
-  mainWindow.webContents.openDevTools();
+ if (isDev === "development") {
+    // Development: load from Vite dev server
+    mainWindow.loadURL('http://localhost:5176/');
+    mainWindow.webContents.openDevTools();
+  } else {
+    // Production: load built files
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
 
   // Show window when ready to prevent visual flash
   mainWindow.once("ready-to-show", () => {

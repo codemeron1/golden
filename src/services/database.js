@@ -1,25 +1,31 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+const Database = require("better-sqlite3");
+const path = require("path");
+const fs = require("fs");
+const { app } = require('electron');
 
 class DatabaseService {
   constructor() {
     try {
-      // Create database in the user data directory
+      // For testing: Create database in the user data directory
       const dbDir = path.join(__dirname, '../database');
       const dbPath = path.join(dbDir, 'timetracker.db');
-      
+
+      //production
+      // const userDataPath = app.getPath("userData");
+      // const dbDir = path.join(userDataPath, "database");
+      // const dbPath = path.join(dbDir, "timetracker.db");
+
       // Ensure database directory exists
       if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
       }
-      
-      console.log('Database path:', dbPath);
+
+      console.log("Database path:", dbPath);
       this.db = new Database(dbPath);
       this.initializeTables();
-      console.log('Database initialized successfully');
+      console.log("Database initialized successfully");
     } catch (error) {
-      console.error('Error initializing database:', error);
+      console.error("Error initializing database:", error);
       throw error;
     }
   }
@@ -74,7 +80,7 @@ class DatabaseService {
   }
 
   // Project methods
-  createProject(name, description = '', color = '#f59e0b') {
+  createProject(name, description = "", color = "#f59e0b") {
     const stmt = this.db.prepare(`
       INSERT INTO projects (name, description, color)
       VALUES (?, ?, ?)
@@ -98,12 +104,14 @@ class DatabaseService {
   }
 
   getProject(id) {
-    const stmt = this.db.prepare('SELECT * FROM projects WHERE id = ?');
+    const stmt = this.db.prepare("SELECT * FROM projects WHERE id = ?");
     return stmt.get(id);
   }
 
   updateProject(id, updates) {
-    const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const fields = Object.keys(updates)
+      .map((key) => `${key} = ?`)
+      .join(", ");
     const values = Object.values(updates);
     const stmt = this.db.prepare(`
       UPDATE projects 
@@ -115,12 +123,12 @@ class DatabaseService {
   }
 
   deleteProject(id) {
-    const stmt = this.db.prepare('DELETE FROM projects WHERE id = ?');
+    const stmt = this.db.prepare("DELETE FROM projects WHERE id = ?");
     return stmt.run(id);
   }
 
   // Task methods
-  createTask(projectId, name, description = '') {
+  createTask(projectId, name, description = "") {
     const stmt = this.db.prepare(`
       INSERT INTO tasks (project_id, name, description)
       VALUES (?, ?, ?)
@@ -138,13 +146,13 @@ class DatabaseService {
       JOIN projects p ON t.project_id = p.id
       LEFT JOIN time_entries te ON t.id = te.task_id
     `;
-    
+
     if (projectId) {
-      query += ' WHERE t.project_id = ?';
+      query += " WHERE t.project_id = ?";
     }
-    
-    query += ' GROUP BY t.id ORDER BY t.created_at DESC';
-    
+
+    query += " GROUP BY t.id ORDER BY t.created_at DESC";
+
     const stmt = this.db.prepare(query);
     return projectId ? stmt.all(projectId) : stmt.all();
   }
@@ -160,7 +168,9 @@ class DatabaseService {
   }
 
   updateTask(id, updates) {
-    const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const fields = Object.keys(updates)
+      .map((key) => `${key} = ?`)
+      .join(", ");
     const values = Object.values(updates);
     const stmt = this.db.prepare(`
       UPDATE tasks 
@@ -172,15 +182,15 @@ class DatabaseService {
   }
 
   deleteTask(id) {
-    const stmt = this.db.prepare('DELETE FROM tasks WHERE id = ?');
+    const stmt = this.db.prepare("DELETE FROM tasks WHERE id = ?");
     return stmt.run(id);
   }
 
   // Time entry methods
-  startTimeEntry(taskId, description = '') {
+  startTimeEntry(taskId, description = "") {
     // End any running time entries for this task
     this.endRunningTimeEntries(taskId);
-    
+
     const currentDateTime = new Date().toISOString();
     const stmt = this.db.prepare(`
       INSERT INTO time_entries (task_id, start_time, description)
@@ -210,9 +220,9 @@ class DatabaseService {
           duration = (strftime('%s', ?) - strftime('%s', start_time))
       WHERE end_time IS NULL
     `;
-    
+
     if (taskId) {
-      query += ' AND task_id = ?';
+      query += " AND task_id = ?";
       const stmt = this.db.prepare(query);
       return stmt.run(currentDateTime, currentDateTime, taskId);
     } else {
@@ -228,13 +238,13 @@ class DatabaseService {
       JOIN tasks t ON te.task_id = t.id
       JOIN projects p ON t.project_id = p.id
     `;
-    
+
     if (taskId) {
-      query += ' WHERE te.task_id = ?';
+      query += " WHERE te.task_id = ?";
     }
-    
-    query += ' ORDER BY te.start_time DESC LIMIT ?';
-    
+
+    query += " ORDER BY te.start_time DESC LIMIT ?";
+
     const stmt = this.db.prepare(query);
     return taskId ? stmt.all(taskId, limit) : stmt.all(limit);
   }
@@ -264,7 +274,9 @@ class DatabaseService {
   }
 
   updateTimeEntry(id, updates) {
-    const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const fields = Object.keys(updates)
+      .map((key) => `${key} = ?`)
+      .join(", ");
     const values = Object.values(updates);
     const stmt = this.db.prepare(`
       UPDATE time_entries 
@@ -276,7 +288,7 @@ class DatabaseService {
   }
 
   deleteTimeEntry(id) {
-    const stmt = this.db.prepare('DELETE FROM time_entries WHERE id = ?');
+    const stmt = this.db.prepare("DELETE FROM time_entries WHERE id = ?");
     return stmt.run(id);
   }
 
@@ -293,19 +305,19 @@ class DatabaseService {
       LEFT JOIN time_entries te ON t.id = te.task_id
       WHERE p.id = ?
     `;
-    
+
     const params = [projectId];
-    
+
     if (startDate) {
-      query += ' AND te.start_time >= ?';
+      query += " AND te.start_time >= ?";
       params.push(startDate);
     }
-    
+
     if (endDate) {
-      query += ' AND te.start_time <= ?';
+      query += " AND te.start_time <= ?";
       params.push(endDate);
     }
-    
+
     const stmt = this.db.prepare(query);
     return stmt.get(...params);
   }
