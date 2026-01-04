@@ -22,13 +22,13 @@ function createWindow() {
   });
 
   // Load the app
- if (isDev === "development") {
+  if (isDev === "development") {
     // Development: load from Vite dev server
-    mainWindow.loadURL('http://localhost:5176/');
+    mainWindow.loadURL("http://localhost:5176/");
     mainWindow.webContents.openDevTools();
   } else {
     // Production: load built files
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 
   // Show window when ready to prevent visual flash
@@ -114,49 +114,83 @@ function setupIpcHandlers() {
   ipcMain.handle(
     "db-create-project",
     async (event, name, description, color) => {
-      return db.createProject(name, description, color);
+      return db.ProjectService.createProject(name, description, color);
     }
   );
 
   ipcMain.handle("db-get-projects", async (event) => {
-    return db.getProjects();
+    return db.ProjectService.getProjects();
   });
 
   ipcMain.handle("db-get-project", async (event, id) => {
-    return db.getProject(id);
+    return db.ProjectService.getProject(id);
   });
 
   ipcMain.handle("db-update-project", async (event, id, updates) => {
-    return db.updateProject(id, updates);
+    return db.ProjectService.updateProject(id, updates);
   });
 
   ipcMain.handle("db-delete-project", async (event, id) => {
-    return db.deleteProject(id);
+    return db.ProjectService.deleteProject(id);
   });
 
   // Task handlers
-  ipcMain.handle(
-    "db-create-task",
-    async (event, taskData) => {
-      console.log("Creating task with data:", taskData);
-      return db.createTask(taskData);
-    }
-  );
+  ipcMain.handle("db-create-task", async (event, taskData) => {
+    return db.TaskService.createTask(taskData);
+  });
 
   ipcMain.handle("db-get-tasks", async (event, projectId) => {
-    return db.getTasks(projectId);
+    return db.TaskService.getTasks(projectId);
   });
 
   ipcMain.handle("db-get-task", async (event, id) => {
-    return db.getTask(id);
+    return db.TaskService.getTask(id);
   });
 
   ipcMain.handle("db-update-task", async (event, id, updates) => {
-    return db.updateTask(id, updates);
+    return db.TaskService.updateTask(id, updates);
   });
 
   ipcMain.handle("db-delete-task", async (event, id) => {
-    return db.deleteTask(id);
+    return db.TaskService.deleteTask(id);
+  });
+
+  // Sub-task handlers
+  ipcMain.handle("db-create-sub-task", async (event, subTaskData) => {
+    return db.SubTaskService.createSubTask(subTaskData);
+  });
+  ipcMain.handle(
+    "db-update-sub-task",
+    async (event, { id, startTime, pausedAt, status, pauseDuration }) => {
+      return db.SubTaskService.updateSubTask({
+        id,
+        startTime,
+        pausedAt,
+        status,
+        pauseDuration,
+      });
+    }
+  );
+  ipcMain.handle('db-get-sub-task', async (event, subTaskId) => {
+    return db.SubTaskService.getSubTask({ subTaskId });
+  });
+  ipcMain.handle("db-get-sub-tasks", async (event, taskId) => {
+    return db.SubTaskService.getSubTasks(taskId);
+  });
+  ipcMain.handle(
+    "db-mark-as-done-sub-task",
+    async (event, { id, endedAt, pauseAt, pauseDuration, status }) => {
+      return db.SubTaskService.subTaskMarkAsDone({
+        id,
+        endedAt,
+        pauseAt,
+        pauseDuration,
+        status,
+      });
+    }
+  );
+  ipcMain.handle("db-delete-sub-task", async (event, id) => {
+    return db.SubTaskService.deleteSubTask(id);
   });
 
   // Time entry handlers

@@ -3,6 +3,9 @@ const Database = require("better-sqlite3");
 const path = require("path");
 const fs = require("fs");
 const { app } = require("electron");
+const SubTaskService = require("./databaseServices/SubTaskService");
+const TaskService = require("./databaseServices/TaskService");
+const ProjectService = require("./databaseServices/ProjectService");
 
 class DatabaseService {
   constructor() {
@@ -22,6 +25,10 @@ class DatabaseService {
       }
       // Initialize database connection
       this.db = new Database(dbPath);
+      this.ProjectService = new ProjectService(this.db);
+      this.TaskService = new TaskService(this.db);
+      this.SubTaskService = new SubTaskService(this.db);
+      // Initialize tables
       this.initializeTables();
     } catch (error) {
       console.error("Error initializing database:", error);
@@ -65,8 +72,10 @@ class DatabaseService {
           task_id INTEGER NOT NULL,
           name TEXT NOT NULL,
           status TEXT DEFAULT 'todo',
-          duration INTEGER, -- duration in minutes (or seconds, your choice)
+          duration INTEGER, -- duration in milliseconds
           started_at DATETIME,
+          pause_started_at DATETIME,
+          total_paused_ms INTEGER DEFAULT 0,
           ended_at DATETIME,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -96,168 +105,9 @@ class DatabaseService {
     `);
   }
 
-  // Project methods
-  createProject(name, description = "", color = "#f59e0b") {
-    const stmt = this.db.prepare(`
-      INSERT INTO projects (name, description, color)
-      VALUES (?, ?, ?)
-    `);
-    const result = stmt.run(name, description, color);
-    return this.getProject(result.lastInsertRowid);
-  }
-
-  getProjects() {
-    const stmt = this.db.prepare(`
-      SELECT p.*, 
-             COUNT(t.id) as task_count,
-             COALESCE(SUM(te.duration), 0) as total_time
-      FROM projects p
-      LEFT JOIN tasks t ON p.id = t.project_id
-      LEFT JOIN time_entries te ON t.id = te.task_id
-      GROUP BY p.id
-      ORDER BY p.created_at DESC
-    `);
-    return stmt.all();
-  }
-
-  getProject(id) {
-    const stmt = this.db.prepare("SELECT * FROM projects WHERE id = ?");
-    return stmt.get(id);
-  }
-
-  updateProject(id, updates) {
-    const fields = Object.keys(updates)
-      .map((key) => `${key} = ?`)
-      .join(", ");
-    const values = Object.values(updates);
-    const stmt = this.db.prepare(`
-      UPDATE projects 
-      SET ${fields}, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `);
-    stmt.run(...values, id);
-    return this.getProject(id);
-  }
-
-  deleteProject(id) {
-    const stmt = this.db.prepare("DELETE FROM projects WHERE id = ?");
-    return stmt.run(id);
-  }
-
-  // Task methods
-  createTask(taskData) {
-    const { projectId, name, description, subTasks, status } = taskData;
-    //create task
-    const stmt = this.db.prepare(`
-      INSERT INTO tasks (project_id, name, description, status)
-      VALUES (?, ?, ?, ?)
-    `);
-    const result = stmt.run(projectId, name, description, status);
-    const taskId = result.lastInsertRowid;
-
-    //create subTasks
-    const subTaskList = extractSubTasks(subTasks);
-    subTaskList.forEach((subTaskName) => {
-      this.createSubTask({
-        taskId: taskId,
-        name: subTaskName,
-      });
-    });
-
-    return true;
-  }
-
-  getTasks(projectId = null) {
-    let query = `
-              SELECT
-                t.*,
-                p.name AS project_name,
-                p.color AS project_color,
-
-                COALESCE(SUM(te.duration), 0) AS total_time,
-                COUNT(DISTINCT te.id) AS time_entry_count,
-
-                COALESCE(
-                  json_group_array(
-                    DISTINCT json_object(
-                      'id', st.id,
-                      'task_id', st.task_id,
-                      'name', st.name,
-                      'status', st.status,
-                      'duration', st.duration,
-                      'created_at', st.created_at,
-                      'updated_at', st.updated_at
-                    )
-                  ),
-                  '[]'
-                ) AS sub_tasks
-
-              FROM tasks t
-              JOIN projects p ON t.project_id = p.id
-              LEFT JOIN time_entries te ON t.id = te.task_id
-              LEFT JOIN sub_tasks st ON t.id = st.task_id
-            `;
-
-    const params = [];
-
-    if (projectId) {
-      query += ` WHERE t.project_id = ?`;
-      params.push(projectId);
-    }
-
-    query += `
-      GROUP BY t.id
-      ORDER BY t.created_at DESC
-    `;
-
-    const stmt = this.db.prepare(query);
-    return projectId ? stmt.all(projectId) : stmt.all();
-  }
-
-  getTask(id) {
-    const stmt = this.db.prepare(`
-      SELECT t.*, p.name as project_name, p.color as project_color
-      FROM tasks t
-      JOIN projects p ON t.project_id = p.id
-      WHERE t.id = ?
-    `);
-    return stmt.get(id);
-  }
-
-  updateTask(id, updates) {
-    const fields = Object.keys(updates)
-      .map((key) => `${key} = ?`)
-      .join(", ");
-    const values = Object.values(updates);
-    const stmt = this.db.prepare(`
-      UPDATE tasks 
-      SET ${fields}, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `);
-    stmt.run(...values, id);
-    return this.getTask(id);
-  }
-
-  deleteTask(id) {
-    const stmt = this.db.prepare("DELETE FROM tasks WHERE id = ?");
-    return stmt.run(id);
-  }
-
-  // Sub-task methods
-  createSubTask(subTaskData) {
-    try {
-      const { taskId, name } = subTaskData;
-      const stmt = this.db.prepare(`
-        INSERT INTO sub_tasks (task_id, name)
-        VALUES (?, ?)
-      `);
-      const result = stmt.run(taskId, name);
-      return result.lastInsertRowid;
-    } catch (error) {
-      console.error("Error creating sub-task:", error);
-      return null;
-    }
-  }
+  // ProjectService = new ProjectService(this.db);
+  // TaskService = new TaskService(this.db);
+  // SubTaskService = new SubTaskService(this.db);
 
   // Time entry methods
   startTimeEntry(taskId, description = "") {
