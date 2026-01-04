@@ -4,8 +4,9 @@ import ProjectList from './components/ProjectList';
 import TaskList from './components/TaskList';
 import TimeTracker from './components/TimeTracker';
 import CreateProjectModal from './components/CreateProjectModal';
-import CreateTaskModal from './components/CreateTaskModal';
+import CreateTaskModal from './components/TaskList/CreateTaskModal';
 import { Clock, FolderOpen, CheckSquare, Plus } from 'lucide-react';
+import { Toaster, toast } from 'sonner';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -80,43 +81,40 @@ function App() {
             <Clock className="h-8 w-8" />
             Time Tracker
           </h1>
-          
+
           <div className="flex space-x-4">
             <button
               onClick={() => setCurrentView('dashboard')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                currentView === 'dashboard'
+              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${currentView === 'dashboard'
                   ? 'bg-golden-100 text-golden-800'
                   : 'text-gray-600 hover:text-golden-700'
-              }`}
+                }`}
             >
               <Clock className="h-4 w-4" />
               Dashboard
             </button>
-            
+
             <button
               onClick={() => setCurrentView('projects')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                currentView === 'projects'
+              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${currentView === 'projects'
                   ? 'bg-golden-100 text-golden-800'
                   : 'text-gray-600 hover:text-golden-700'
-              }`}
+                }`}
             >
               <FolderOpen className="h-4 w-4" />
               Projects
             </button>
-            
+
             {selectedProject && (
               <button
                 onClick={() => {
                   setCurrentView('tasks');
                   loadTasks(selectedProject.id);
                 }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                  currentView === 'tasks'
+                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${currentView === 'tasks'
                     ? 'bg-golden-100 text-golden-800'
                     : 'text-gray-600 hover:text-golden-700'
-                }`}
+                  }`}
               >
                 <CheckSquare className="h-4 w-4" />
                 {selectedProject.name} Tasks
@@ -124,7 +122,7 @@ function App() {
             )}
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           {currentView === 'projects' && (
             <button
@@ -135,7 +133,7 @@ function App() {
               New Project
             </button>
           )}
-          
+
           {currentView === 'tasks' && selectedProject && (
             <button
               onClick={() => setShowCreateTask(true)}
@@ -147,7 +145,7 @@ function App() {
           )}
         </div>
       </div>
-      
+
       {/* Breadcrumb */}
       {(selectedProject || selectedTask) && (
         <div className="mt-2 text-sm text-gray-500">
@@ -227,13 +225,15 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gray-300">
+      <Toaster />
+
       {renderNavigation()}
-      
+
       <main className="max-w-7xl mx-auto px-6 py-8">
         {renderContent()}
       </main>
-      
+
       {/* Modals */}
       {showCreateProject && (
         <CreateProjectModal
@@ -241,7 +241,7 @@ function App() {
           onProjectCreated={handleProjectCreated}
         />
       )}
-      
+
       {showCreateTask && selectedProject && (
         <CreateTaskModal
           project={selectedProject}
