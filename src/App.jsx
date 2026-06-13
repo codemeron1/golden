@@ -206,6 +206,7 @@ function App() {
             project={selectedProject}
             onTaskSelect={handleTaskSelect}
             onRefresh={() => loadTasks(selectedProject?.id)}
+            onAddTask={() => setShowCreateTask(true)}
           />
         );
       case 'tracker':
@@ -230,7 +231,7 @@ function App() {
 
       {renderNavigation()}
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className=" mx-auto px-6 py-8">
         {renderContent()}
       </main>
 
@@ -242,13 +243,13 @@ function App() {
         />
       )}
 
-      {showCreateTask && selectedProject && (
+      {/* {showCreateTask && selectedProject && (
         <CreateTaskModal
           project={selectedProject}
           onClose={() => setShowCreateTask(false)}
           onTaskCreated={handleTaskCreated}
         />
-      )}
+      )} */}
     </div>
   );
 }

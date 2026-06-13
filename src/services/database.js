@@ -10,11 +10,11 @@ const ProjectService = require("./databaseServices/ProjectService");
 class DatabaseService {
   constructor() {
     try {
-      // For testing: Create database in the user data directory
+      // development mode: database is in the project directory (src/database/timetracker.db)
       const dbDir = path.join(__dirname, "../database");
       const dbPath = path.join(dbDir, "timetracker.db");
 
-      //production
+      // production mode
       // const userDataPath = app.getPath("userData");
       // const dbDir = path.join(userDataPath, "database");
       // const dbPath = path.join(dbDir, "timetracker.db");

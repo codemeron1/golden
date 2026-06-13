@@ -1,14 +1,44 @@
 import { useState } from 'react';
-import { CheckSquare} from 'lucide-react';
+import { CheckSquare } from 'lucide-react';
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import TaskCard from './TaskList/TaskCard';
+import TaskCard from './TaskList/TaskCardOld';
+import TaskStatusColumn from './TaskList/TaskStatusColumn';
+import CreateTaskModal from './TaskList/CreateTaskModal';
 
 function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
+  console.log("tasks: ", tasks);
   const [showMenu, setShowMenu] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', description: '', status: 'active' });
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [taskStatusToAdd, setTaskStatusToAdd] = useState('');
 
+  const taskStatuses = [
+    { label: "todo" },
+    { label: "in-progress" },
+    { label: "done" },
+    { label: "terminated" },
+  ]
+  const handleAddTask = (taskStatus) => {
+    setShowCreateTaskModal(true);
+    setTaskStatusToAdd(taskStatus)
+  }
+  const handleOnCloseCreateTaskModal = () => {
+    setShowCreateTaskModal(false);
+  }
+  const handleOnSaveTask = () => {
+    setShowCreateTaskModal(false);
+    
+  }
+  const handleTaskDrop = async (taskId, newStatus) => {
+    try {
+      await window.electronAPI.db.updateTask(parseInt(taskId), { status: newStatus });
+      onRefresh();
+    } catch (error) {
+      console.error('Error updating task status:', error);
+    }
+  };
   const handleSaveEdit = async () => {
     try {
       await window.electronAPI.db.updateTask(editingTask, editForm);
@@ -64,85 +94,20 @@ function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="p-2 flex gap-x-2">
           {
-            tasks.map((task) => {
-              const subTasks = task.sub_tasks ? JSON.parse(task.sub_tasks) : [];
+            taskStatuses.map(statusData => {
               return (
-                <div
-                  key={task.id}
-                  className="rounded-lg shadow-md hover:shadow-lg transition-shadow"
-                >
-                  {editingTask === task.id ? (
-                    // Edit form
-                    <div className="p-6 space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Task Name
-                        </label>
-                        <input
-                          type="text"
-                          value={editForm.name}
-                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Sub-Tasks
-                        </label>
-                        <ReactQuill
-                          theme="snow"
-                          value={editForm.description}
-                          onChange={(value) => setEditForm({ ...editForm, description: value })}
-                          placeholder="Start typing..."
-                          modules={{
-                            toolbar: [
-                              [{ list: "ordered" }]
-                            ],
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Status
-                        </label>
-                        <select
-                          value={editForm.status}
-                          onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500"
-                        >
-                          <option value="active">Active</option>
-                          <option value="completed">Completed</option>
-                          <option value="paused">Paused</option>
-                          <option value="archived">Archived</option>
-                        </select>
-                      </div>
-
-                      <div className="flex justify-end space-x-2 pt-2">
-                        <button
-                          onClick={handleCancelEdit}
-                          className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveEdit}
-                          className="px-4 py-2 bg-golden-500 hover:bg-golden-600 text-white rounded-md transition-colors"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    // Task card
-                    <TaskCard task={task} subTasks={subTasks} />
-                  )}
-                </div>
-              );
-            })}
+                <TaskStatusColumn
+                  key={statusData.label}
+                  status={statusData.label}
+                  tasks={tasks.filter(task => task.status === statusData.label)}
+                  onAddTask={() => handleAddTask(statusData.label)}
+                  onTaskDrop={handleTaskDrop}
+                />
+              )
+            })
+          }
         </div>
       )}
       {/* Click outside to close menu */}
@@ -153,6 +118,15 @@ function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
             onClick={() => setShowMenu(null)}
           />
         )
+      }
+      {
+        showCreateTaskModal &&
+        <CreateTaskModal
+          project={project}
+          onClose={handleOnCloseCreateTaskModal}
+          onSave={handleOnSaveTask}
+          taskStatusToAdd={taskStatusToAdd}
+           />
       }
     </div >
   );
