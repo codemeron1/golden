@@ -65,6 +65,19 @@ class DatabaseService {
       )
     `);
 
+    // create task_time_entries table
+    this.db.exec(`
+        CREATE TABLE IF NOT EXISTS task_time_entries (
+          id INTEGER PRIMARY KEY,
+          task_id INTEGER NOT NULL,
+          started_at DATETIME NOT NULL,
+          ended_at DATETIME,
+          duration INTEGER, 
+          notes TEXT,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+    `);
+
     // Create sub_tasks table
     this.db.exec(`
         CREATE TABLE IF NOT EXISTS sub_tasks (

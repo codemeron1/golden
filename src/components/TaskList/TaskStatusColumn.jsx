@@ -34,7 +34,7 @@ const STATUS_THEMES = {
   },
 };
 
-export default function TaskStatusColumn({ status = 'todo', tasks = [], onAddTask, onTaskDrop }) {
+export default function TaskStatusColumn({ status = 'todo', tasks = [], onAddTask, onTaskDrop, onQuickStart }) {
   const theme = STATUS_THEMES[status] || STATUS_THEMES.todo;
 
   const handleDragOver = (e) => {
@@ -50,7 +50,10 @@ export default function TaskStatusColumn({ status = 'todo', tasks = [], onAddTas
   };
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className={`flex flex-col w-full rounded-xl p-4 border ${theme.bg} ${theme.border} shadow-sm transition-colors duration-200`}>
+    <div
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className={`flex flex-col w-full rounded-xl p-4 border ${theme.bg} ${theme.border} shadow-sm transition-colors duration-200`}>
       {/* Column Header */}
       <div className="flex items-center justify-between mb-4 pb-2 border-b border-dashed border-gray-300/60">
         <div className="flex items-center gap-2">
@@ -83,7 +86,13 @@ export default function TaskStatusColumn({ status = 'todo', tasks = [], onAddTas
             <p className="text-xs text-gray-400 italic">No tasks yet</p>
           </div>
         ) : (
-          tasks.map((task) => <TaskCard key={`task-${task.id}`} task={task} />)
+          tasks.map((task) => {
+            return <TaskCard
+              key={`task-${task.id}`}
+              task={task}
+              onQuickStart={onQuickStart}
+            />
+          })
         )}
       </div>
     </div>

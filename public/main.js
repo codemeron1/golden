@@ -134,26 +134,35 @@ function setupIpcHandlers() {
     return db.ProjectService.deleteProject(id);
   });
 
-  // Task handlers
+  // db: tasks start
   ipcMain.handle("db-create-task", async (event, taskData) => {
     return db.TaskService.createTask(taskData);
   });
-
   ipcMain.handle("db-get-tasks", async (event, projectId) => {
     return db.TaskService.getTasks(projectId);
   });
-
   ipcMain.handle("db-get-task", async (event, id) => {
     return db.TaskService.getTask(id);
   });
-
   ipcMain.handle("db-update-task", async (event, id, updates) => {
     return db.TaskService.updateTask(id, updates);
   });
-
   ipcMain.handle("db-delete-task", async (event, id) => {
     return db.TaskService.deleteTask(id);
   });
+  //db: task_time_entries start
+  ipcMain.handle("db-get-specific-task-time-entries", async (event, taskId) => {
+    return db.TaskService.getSpecificTaskTimeEntries(taskId);
+  });
+  ipcMain.handle("db-task-save-time-entry", async (event, task) => {
+    return db.TaskService.saveTimeEntry(task);
+  });
+  ipcMain.handle("db-task-update-time-entry", async (event, task, recordId) => {
+    return db.TaskService.updateTimeEntry(task, recordId);
+  });
+  //db: task_time_entries end
+  // db: tasks start
+
 
   // Sub-task handlers
   ipcMain.handle("db-create-sub-task", async (event, subTaskData) => {

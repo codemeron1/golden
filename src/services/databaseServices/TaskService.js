@@ -5,6 +5,10 @@ class TaskService {
   constructor(db) {
     this.db = db;
     this.SubTaskService = new SubTaskService(db);
+    this.tables = {
+      tasks: "tasks",
+      task_time_entries: "task_time_entries",
+    };
   }
   // Task methods
   createTask(taskData) {
@@ -107,6 +111,78 @@ class TaskService {
     const stmt = this.db.prepare("DELETE FROM tasks WHERE id = ?");
     return stmt.run(id);
   }
-};
+  // time entries
+  getSpecificTaskTimeEntries(taskId) {
+    try {
+      const stmt = this.db.prepare(
+        `SELECT * FROM ${this.tables.task_time_entries} WHERE task_id = ?`,
+      );
+      const result = stmt.all(taskId);
+      return result;
+    } catch (error) {
+      console.error("Error fetching time entries for specific task:", error);
+      return null;
+    }
+  }
+  getSpecificTimeEntry(id) {
+    try {
+      const stmt = this.db.prepare(
+        `SELECT * FROM ${this.tables.task_time_entries} WHERE id = ?`,
+      );
+      return stmt.get(id);
+    } catch (error) {
+      console.error("Error fetching time entry:", error);
+      return null;
+    }
+  }
+  saveTimeEntry(task) {
+    try {
+      const id = task.id;
+      const startedAt = new Date().toISOString();
+      const stmt = this.db.prepare(`
+        INSERT INTO task_time_entries (task_id, started_at)
+        VALUES (?, ?)
+      `);
+      const result = stmt.run(id, startedAt);
+      return this.getSpecificTimeEntry(result.lastInsertRowid);
+    } catch (error) {
+      console.error("Error saving time entry:", error);
+      return null;
+    }
+  }
+  updateTimeEntry(task) {
+    try {
+      const id = task.id;
+      const endedAt = new Date().toISOString();
+      const computeTimeInSeconds = (startTime, endTime) => {
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+        const diff = end.getTime() - start.getTime();
+        return Math.floor(diff / 1000);
+      };
+      const duration = computeTimeInSeconds(task.started_at, endedAt);
+
+      //get the record id ng entry na walang endedAt value
+      const stmtGetRecord = this.db.prepare(`
+        SELECT id FROM task_time_entries 
+        WHERE task_id = ? AND ended_at IS NULL
+        ORDER BY id DESC LIMIT 1
+      `);
+      const resultGetRecord = stmtGetRecord.get(id);
+      const recordId = resultGetRecord.id;
+
+      const stmt = this.db.prepare(`
+        UPDATE task_time_entries 
+        SET task_id = ?, ended_at = ?, duration = ? 
+        WHERE id = ?
+      `);
+      const result = stmt.run(id, endedAt, duration, recordId);
+      return this.getSpecificTimeEntry(result.lastInsertRowidname);
+    } catch (error) {
+      console.error("Error updating time entry:", error);
+      return null;
+    }
+  }
+}
 
 module.exports = TaskService;
