@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     updateTask: (id, updates) =>
       ipcRenderer.invoke("db-update-task", id, updates),
     deleteTask: (id) => ipcRenderer.invoke("db-delete-task", id),
+    //db: task_time_entries methods start
+    saveTimeEntry: (task) => ipcRenderer.invoke("db-task-save-time-entry", task),
+    updateTimeEntry: (task, recordId) => ipcRenderer.invoke("db-task-update-time-entry", task, recordId),
+    getSpecificTaskTimeEntries: (taskId) => ipcRenderer.invoke("db-get-specific-task-time-entries", taskId),
+    //db: task_time_entries methods end
+
 
     // Sub-tasks
     createSubTask: (subTaskData) =>
@@ -63,8 +69,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke("db-get-time-entries", taskId, limit),
     getTimeEntry: (id) => ipcRenderer.invoke("db-get-time-entry", id),
     getRunningTimeEntry: () => ipcRenderer.invoke("db-get-running-time-entry"),
-    updateTimeEntry: (id, updates) =>
-      ipcRenderer.invoke("db-update-time-entry", id, updates),
+    // updateTimeEntry: (id, updates) => ipcRenderer.invoke("db-update-time-entry", id, updates),
     deleteTimeEntry: (id) => ipcRenderer.invoke("db-delete-time-entry", id),
 
     // Statistics

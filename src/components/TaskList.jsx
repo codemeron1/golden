@@ -7,7 +7,6 @@ import TaskStatusColumn from './TaskList/TaskStatusColumn';
 import CreateTaskModal from './TaskList/CreateTaskModal';
 
 function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
-  console.log("tasks: ", tasks);
   const [showMenu, setShowMenu] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', description: '', status: 'active' });
@@ -103,6 +102,7 @@ function TaskList({ tasks, project, onTaskSelect, onRefresh }) {
                   status={statusData.label}
                   tasks={tasks.filter(task => task.status === statusData.label)}
                   onAddTask={() => handleAddTask(statusData.label)}
+                  onQuickStart={handleQuickStart}
                   onTaskDrop={handleTaskDrop}
                 />
               )
