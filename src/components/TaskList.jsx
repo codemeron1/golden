@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { CheckSquare } from 'lucide-react';
-import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import TaskCard from './TaskList/TaskCardOld';
 import TaskStatusColumn from './TaskList/TaskStatusColumn';
 import CreateTaskModal from './TaskList/CreateTaskModal';
 
