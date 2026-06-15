@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { GripVertical, Play, Clock, Pause, Square } from 'lucide-react';
-import { formatTime } from '../../utils/timeUtils';
+import React, { useState, useEffect } from 'react';
+import { GripVertical, Play, Clock, Square, History } from 'lucide-react';
+import { formatTime, calculateDurationWithHourMinuteSecond, formatDuration } from '../../utils/timeUtils';
 
 const TaskCard = ({ task }) => {
   const [trackTimeStatus, setTrackTimeStatus] = useState('play');
-  const [timeSpent, setTimeSpent] = useState('00:00');
-
+  const [timeSpent, setTimeSpent] = useState('00:00:00');
+  const [accumulatedSeconds, setAccumulatedSeconds] = useState(0);
+  const [activeStartTime, setActiveStartTime] = useState(null);
 
   const handleDragStart = (e) => {
     e.dataTransfer.setData('taskId', task.id.toString());
@@ -13,34 +14,30 @@ const TaskCard = ({ task }) => {
 
   const handleToggleTimer = async (e) => {
     e.preventDefault();
-    switch (trackTimeStatus) {
-      case 'play':
-        setTrackTimeStatus('stop');
-        window.electronAPI.db.saveTimeEntry(task);
-        break;
-      case 'stop':
-        setTrackTimeStatus('play');
-        window.electronAPI.db.updateTimeEntry(task);
-        // compute the total duration spent: 00:00:00
-        //get all the time entries
-        const timeEntries = await window.electronAPI.db.getSpecificTaskTimeEntries(task.id);
-        if (timeEntries !== null) {
-          // computer duration
-          let totalDuration = 0;
-          timeEntries.forEach(entry => {
-            if (entry.duration) {
-              totalDuration += entry.duration;
-            }
-          });
-          //convert duration to: 00:00:00
-          const hours = Math.floor(totalDuration / 3600);
-          const minutes = Math.floor((totalDuration % 3600) / 60);
-          const seconds = totalDuration % 60;
-          const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-          setTimeSpent(formattedTime);
-        }
+    e.stopPropagation(); // Prevent the parent click handler (history modal) from firing
 
-        break;
+    if (trackTimeStatus === 'play') {
+      // Start Tracking
+      const now = Date.now();
+      setTrackTimeStatus('stop');
+      setActiveStartTime(now);
+      await window.electronAPI.db.saveTimeEntry(task);
+    } else {
+      // Stop Tracking
+      setTrackTimeStatus('play');
+      await window.electronAPI.db.updateTimeEntry(task);
+      
+      // Sync accumulated time from DB records to ensure precision after stopping
+      const updatedEntries = await window.electronAPI.db.getSpecificTaskTimeEntries(task.id);
+      if (updatedEntries) {
+        let total = 0;
+        updatedEntries.forEach(entry => {
+          if (entry.duration) total += entry.duration;
+        });
+        setAccumulatedSeconds(total);
+        setTimeSpent(formatDuration(total));
+      }
+      setActiveStartTime(null);
     }
   };
 
@@ -49,17 +46,56 @@ const TaskCard = ({ task }) => {
       case 'play':
         return <Play className="w-3 h-3 mr-1 fill-current" />
       case 'stop':
-        return <Square className="w-3 h-3 mr-1 fill-current" />
+        return <Square className="w-3 h-3 mr-1 fill-current text-red-500" />
     }
   }
+
+  const handleShowTaskHistory = async () => {
+  }
+
+  useEffect(() => {
+    // Load initial state and check for active running sessions
+    const timeEntries = task.timeEntries || [];
+    let total = 0;
+    let runningEntry = null;
+
+    timeEntries.forEach(entry => {
+      if (entry.duration) {
+        total += entry.duration;
+      } else if (entry.started_at && !entry.ended_at) {
+        runningEntry = entry;
+      }
+    });
+
+    setAccumulatedSeconds(total);
+    if (runningEntry) {
+      setTrackTimeStatus('stop');
+      setActiveStartTime(new Date(runningEntry.started_at).getTime());
+    } else {
+      setTimeSpent(formatDuration(total));
+    }
+  }, [task.id, task.timeEntries]);
+
+  useEffect(() => {
+    let interval;
+    if (trackTimeStatus === 'stop' && activeStartTime) {
+      interval = setInterval(() => {
+        const elapsedSinceStart = Math.floor((Date.now() - activeStartTime) / 1000);
+        setTimeSpent(formatDuration(accumulatedSeconds + elapsedSinceStart));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [trackTimeStatus, activeStartTime, accumulatedSeconds]);
 
   return (
     <div
       draggable
+      onClick = {handleShowTaskHistory}
       onDragStart={handleDragStart}
       className="bg-white p-3.5 rounded-lg border border-gray-200 shadow-sm 
       hover:bg-gray-100 transition-shadow duration-200 cursor-grab 
       active:cursor-grabbing"
+      title='Click to show task history log. Drag to move to specific status.'
     >
       <div className="flex items-start gap-2">
         <GripVertical className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />

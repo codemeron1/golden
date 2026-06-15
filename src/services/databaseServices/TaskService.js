@@ -34,53 +34,23 @@ class TaskService {
   }
 
   getTasks(projectId = null) {
-    let query = `
-              SELECT
-                t.*,
-                p.name AS project_name,
-                p.color AS project_color,
-
-                COALESCE(SUM(te.duration), 0) AS total_time,
-                COUNT(DISTINCT te.id) AS time_entry_count,
-
-                COALESCE(
-                  json_group_array(
-                    DISTINCT json_object(
-                      'id', st.id,
-                      'task_id', st.task_id,
-                      'name', st.name,
-                      'status', st.status,
-                      'duration', st.duration,
-                      'started_at', st.started_at,
-                      'pause_started_at', st.pause_started_at,
-                      'total_paused_ms',  st.total_paused_ms,
-                      'created_at', st.created_at,
-                      'updated_at', st.updated_at
-                    )
-                  ),
-                  '[]'
-                ) AS sub_tasks
-
-              FROM tasks t
-              JOIN projects p ON t.project_id = p.id
-              LEFT JOIN time_entries te ON t.id = te.task_id
-              LEFT JOIN sub_tasks st ON t.id = st.task_id
-            `;
-
-    const params = [];
-
-    if (projectId) {
-      query += ` WHERE t.project_id = ?`;
-      params.push(projectId);
+    //get all the tasks
+    let queryTasks = "SELECT * FROM tasks WHERE project_id = ?";
+    const stmtTasks = this.db.prepare(queryTasks);
+    const stmtTasksResults = stmtTasks.all(projectId);
+    if (stmtTasksResults.length === 0) {
+      return [];
     }
 
-    query += `
-      GROUP BY t.id
-      ORDER BY t.created_at DESC
-    `;
+    //get all the time entries for each task
+    let queryTimeEntries = "SELECT * FROM task_time_entries WHERE task_id = ?";
+    const stmtTimeEntries = this.db.prepare(queryTimeEntries);
+    stmtTasksResults.forEach((task) => {
+      const stmtTimeEntriesResult = stmtTimeEntries.all(task.id);
+      task.timeEntries = stmtTimeEntriesResult;
+    });
 
-    const stmt = this.db.prepare(query);
-    return projectId ? stmt.all(projectId) : stmt.all();
+    return stmtTasksResults;
   }
 
   getTask(id) {
@@ -151,18 +121,34 @@ class TaskService {
     }
   }
   updateTimeEntry(task) {
+    console.log("update time entry: ", task)
     try {
       const id = task.id;
-      const endedAt = new Date().toISOString();
+      //get the started_at value from the database
+      const timeEntryData = this.getSpecificTimeEntry(id);
+      const startTime = timeEntryData.started_at;
+      const endTime = new Date().toISOString();
       const computeTimeInSeconds = (startTime, endTime) => {
+        if (!startTime || !endTime) {
+          console.warn("Missing startTime or endTime for duration calculation");
+          return 0;
+        }
         const start = new Date(startTime);
         const end = new Date(endTime);
+
+        // Check if dates are valid
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+          console.warn("Invalid date format:", { startTime, endTime });
+          return 0;
+        }
+
         const diff = end.getTime() - start.getTime();
         return Math.floor(diff / 1000);
       };
-      const duration = computeTimeInSeconds(task.started_at, endedAt);
+      let duration = computeTimeInSeconds(startTime, endTime);
+      if (duration < 1) duration = 0;
 
-      //get the record id ng entry na walang endedAt value
+      //get the record id ng entry na walang ended_at value
       const stmtGetRecord = this.db.prepare(`
         SELECT id FROM task_time_entries 
         WHERE task_id = ? AND ended_at IS NULL
@@ -176,8 +162,9 @@ class TaskService {
         SET task_id = ?, ended_at = ?, duration = ? 
         WHERE id = ?
       `);
-      const result = stmt.run(id, endedAt, duration, recordId);
+      const result = stmt.run(id, endTime, duration, recordId);
       return this.getSpecificTimeEntry(result.lastInsertRowidname);
+
     } catch (error) {
       console.error("Error updating time entry:", error);
       return null;

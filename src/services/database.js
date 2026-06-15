@@ -213,7 +213,7 @@ class DatabaseService {
     const fields = Object.keys(updates)
       .map((key) => `${key} = ?`)
       .join(", ");
-    const values = Object.values(updates);
+  const values = Object.values(updates);
     const stmt = this.db.prepare(`
       UPDATE time_entries 
       SET ${fields}

@@ -1,22 +1,22 @@
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from "date-fns";
 
 export function formatDuration(seconds) {
-  if (!seconds || seconds < 0) return '00:00:00';
-  
+  if (!seconds || seconds < 0) return "00:00:00";
+
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
 export function formatDurationShort(seconds) {
-  if (!seconds || seconds < 0) return '0m';
-  
+  if (!seconds || seconds < 0) return "0m";
+
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
   } else if (minutes > 0) {
@@ -27,17 +27,17 @@ export function formatDurationShort(seconds) {
 }
 
 export function formatTime(dateString) {
-  if (!dateString) return '';
-  return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+  if (!dateString) return "";
+  return format(new Date(dateString), "MMM d, yyyy h:mm a");
 }
 
 export function formatTimeShort(dateString) {
-  if (!dateString) return '';
-  return format(new Date(dateString), 'h:mm a');
+  if (!dateString) return "";
+  return format(new Date(dateString), "h:mm a");
 }
 
 export function formatRelativeTime(dateString) {
-  if (!dateString) return '';
+  if (!dateString) return "";
   return formatDistanceToNow(new Date(dateString), { addSuffix: true });
 }
 
@@ -52,7 +52,28 @@ export function calculateDuration(startTime, endTime) {
   return Math.floor((end - start) / 1000);
 }
 
+export function calculateDurationWithHourMinuteSecond(timeEntries = []) {
+  if (timeEntries.length === 0) return "00:00:00";
+
+  let totalDuration = 0;
+  timeEntries.forEach((entry) => {
+    if (entry.duration) {
+      totalDuration += entry.duration;
+    }
+  });
+
+  if (typeof totalDuration !== 'number' || totalDuration < 0) {
+    return '00:00:00';
+  }
+  //convert duration to: 00:00:00
+  const hours = Math.floor(totalDuration / 3600);
+  const minutes = Math.floor((totalDuration % 3600) / 60);
+  const seconds = Math.floor(totalDuration % 60);
+  const formattedTime = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  return formattedTime;
+}
+
 export function formatShortDate(dateString) {
-  if (!dateString) return '';
-  return format(new Date(dateString), 'MMMM d, yyyy');
+  if (!dateString) return "";
+  return format(new Date(dateString), "MMMM d, yyyy");
 }
