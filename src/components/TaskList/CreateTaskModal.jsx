@@ -93,7 +93,6 @@ function CreateTaskModal({ project, onClose, onSave, taskStatusToAdd = 'todo' })
               onChange={(e) => handleChange('description', e.target.value)}
               placeholder="Enter task description"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500 focus:border-transparent"
-              required
             />
           </div>
 
