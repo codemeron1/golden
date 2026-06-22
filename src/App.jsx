@@ -76,7 +76,7 @@ function App() {
   const renderNavigation = () => (
     <nav className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-6">
+        <header className="flex items-center space-x-6">
           <h1 className="text-2xl font-bold text-golden-800 flex items-center gap-2">
             <Clock className="h-8 w-8" />
             Time Tracker
@@ -86,8 +86,8 @@ function App() {
             <button
               onClick={() => setCurrentView('dashboard')}
               className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${currentView === 'dashboard'
-                  ? 'bg-golden-100 text-golden-800'
-                  : 'text-gray-600 hover:text-golden-700'
+                ? 'bg-golden-100 text-golden-800'
+                : 'text-gray-600 hover:text-golden-700'
                 }`}
             >
               <Clock className="h-4 w-4" />
@@ -97,8 +97,8 @@ function App() {
             <button
               onClick={() => setCurrentView('projects')}
               className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${currentView === 'projects'
-                  ? 'bg-golden-100 text-golden-800'
-                  : 'text-gray-600 hover:text-golden-700'
+                ? 'bg-golden-100 text-golden-800'
+                : 'text-gray-600 hover:text-golden-700'
                 }`}
             >
               <FolderOpen className="h-4 w-4" />
@@ -112,8 +112,8 @@ function App() {
                   loadTasks(selectedProject.id);
                 }}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${currentView === 'tasks'
-                    ? 'bg-golden-100 text-golden-800'
-                    : 'text-gray-600 hover:text-golden-700'
+                  ? 'bg-golden-100 text-golden-800'
+                  : 'text-gray-600 hover:text-golden-700'
                   }`}
               >
                 <CheckSquare className="h-4 w-4" />
@@ -121,7 +121,7 @@ function App() {
               </button>
             )}
           </div>
-        </div>
+        </header>
 
         <div className="flex items-center space-x-2">
           {currentView === 'projects' && (
@@ -145,38 +145,6 @@ function App() {
           )}
         </div>
       </div>
-
-      {/* Breadcrumb */}
-      {(selectedProject || selectedTask) && (
-        <div className="mt-2 text-sm text-gray-500">
-          <button
-            onClick={() => setCurrentView('projects')}
-            className="hover:text-golden-600"
-          >
-            Projects
-          </button>
-          {selectedProject && (
-            <>
-              <span className="mx-2">/</span>
-              <button
-                onClick={() => {
-                  setCurrentView('tasks');
-                  loadTasks(selectedProject.id);
-                }}
-                className="hover:text-golden-600"
-              >
-                {selectedProject.name}
-              </button>
-            </>
-          )}
-          {selectedTask && (
-            <>
-              <span className="mx-2">/</span>
-              <span className="text-golden-600">{selectedTask.name}</span>
-            </>
-          )}
-        </div>
-      )}
     </nav>
   );
 
@@ -206,7 +174,6 @@ function App() {
             project={selectedProject}
             onTaskSelect={handleTaskSelect}
             onRefresh={() => loadTasks(selectedProject?.id)}
-            onAddTask={() => setShowCreateTask(true)}
           />
         );
       case 'tracker':
@@ -231,7 +198,7 @@ function App() {
 
       {renderNavigation()}
 
-      <main className=" mx-auto px-6 py-8">
+      <main className="mx-auto p-2 bg-golden-100 h-[calc(100vh-4rem)] overflow-hidden">
         {renderContent()}
       </main>
 
@@ -243,13 +210,13 @@ function App() {
         />
       )}
 
-      {/* {showCreateTask && selectedProject && (
+      {showCreateTask && selectedProject && (
         <CreateTaskModal
           project={selectedProject}
           onClose={() => setShowCreateTask(false)}
-          onTaskCreated={handleTaskCreated}
+          onSave={handleTaskCreated}
         />
-      )} */}
+      )}
     </div>
   );
 }

@@ -34,7 +34,12 @@ const STATUS_THEMES = {
   },
 };
 
-export default function TaskStatusColumn({ status = 'todo', tasks = [], onAddTask, onTaskDrop, onQuickStart }) {
+export default function TaskStatusColumn({
+  status = 'todo',
+  tasks = [],
+  onAddTask,
+  onTaskDrop,
+  onQuickStart }) {
   const theme = STATUS_THEMES[status] || STATUS_THEMES.todo;
 
   const handleDragOver = (e) => {
@@ -53,7 +58,8 @@ export default function TaskStatusColumn({ status = 'todo', tasks = [], onAddTas
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className={`flex flex-col w-full rounded-xl p-4 border ${theme.bg} ${theme.border} shadow-sm transition-colors duration-200`}>
+      className={`flex flex-col flex-1 min-w-0 rounded-xl p-4 border 
+        ${theme.bg} ${theme.border} shadow-sm transition-colors duration-200`}>
       {/* Column Header */}
       <div className="flex items-center justify-between mb-4 pb-2 border-b border-dashed border-gray-300/60">
         <div className="flex items-center gap-2">
@@ -68,14 +74,14 @@ export default function TaskStatusColumn({ status = 'todo', tasks = [], onAddTas
           <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${theme.badge}`}>
             {tasks.length}
           </span>
-          {/* Plus Button */}
+          {/* Plus Button
           <button
             onClick={() => onAddTask(status)}
             className="p-1 rounded-full hover:bg-white/50 transition-colors"
             title="Add task"
           >
             <Plus className="h-4 w-4" />
-          </button>
+          </button> */}
         </div>
       </div>
 

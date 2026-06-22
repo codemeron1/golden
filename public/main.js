@@ -1,14 +1,14 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const isDev = "development";
+const { DEVELOPMENT_MODE } = require("../src/constants/constants.js");
 
 // Import database service
 const DatabaseService = require("../src/services/database.js");
 
 function createWindow() {
   // Create the browser window
-  const mainWindow = new BrowserWindow({
+  let mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
@@ -22,7 +22,7 @@ function createWindow() {
   });
 
   // Load the app
-  if (isDev === "development") {
+  if (DEVELOPMENT_MODE === "development") {
     // Development: load from Vite dev server
     mainWindow.loadURL("http://localhost:5176/");
     mainWindow.webContents.openDevTools();
@@ -57,6 +57,7 @@ app.whenReady().then(() => {
     // Initialize database
     console.log("Initializing database...");
     db = new DatabaseService();
+    db.TaskService.endRunningTimeEntries();
     console.log("Database initialized successfully");
 
     // Setup IPC handlers
@@ -70,7 +71,7 @@ app.whenReady().then(() => {
     dialog.showErrorBox(
       "Database Error",
       "Failed to initialize database. Please make sure you have proper permissions and try again.\n\nError: " +
-        error.message
+        error.message,
     );
     app.quit();
   }
@@ -101,10 +102,10 @@ app.on("web-contents-created", (event, contents) => {
       frameName,
       disposition,
       options,
-      additionalFeatures
+      additionalFeatures,
     ) => {
       event.preventDefault();
-    }
+    },
   );
 });
 
@@ -115,7 +116,7 @@ function setupIpcHandlers() {
     "db-create-project",
     async (event, name, description, color) => {
       return db.ProjectService.createProject(name, description, color);
-    }
+    },
   );
 
   ipcMain.handle("db-get-projects", async (event) => {
@@ -142,7 +143,7 @@ function setupIpcHandlers() {
     return db.TaskService.getTasks(projectId);
   });
   ipcMain.handle("db-get-task", async (event, id) => {
-    return db.TaskService.getTask(id);
+    return db.TaskService.getSpecificTask(id);
   });
   ipcMain.handle("db-update-task", async (event, id, updates) => {
     return db.TaskService.updateTask(id, updates);
@@ -160,9 +161,11 @@ function setupIpcHandlers() {
   ipcMain.handle("db-task-update-time-entry", async (event, task, recordId) => {
     return db.TaskService.updateTimeEntry(task, recordId);
   });
+  ipcMain.handle("db-end-running-time-entries", async () => {
+    return db.TaskService.endRunningTimeEntries();
+  });
   //db: task_time_entries end
   // db: tasks start
-
 
   // Sub-task handlers
   ipcMain.handle("db-create-sub-task", async (event, subTaskData) => {
@@ -178,9 +181,9 @@ function setupIpcHandlers() {
         status,
         pauseDuration,
       });
-    }
+    },
   );
-  ipcMain.handle('db-get-sub-task', async (event, subTaskId) => {
+  ipcMain.handle("db-get-sub-task", async (event, subTaskId) => {
     return db.SubTaskService.getSubTask({ subTaskId });
   });
   ipcMain.handle("db-get-sub-tasks", async (event, taskId) => {
@@ -196,7 +199,7 @@ function setupIpcHandlers() {
         pauseDuration,
         status,
       });
-    }
+    },
   );
   ipcMain.handle("db-delete-sub-task", async (event, id) => {
     return db.SubTaskService.deleteSubTask(id);
@@ -209,10 +212,6 @@ function setupIpcHandlers() {
 
   ipcMain.handle("db-end-time-entry", async (event, id) => {
     return db.endTimeEntry(id);
-  });
-
-  ipcMain.handle("db-end-running-time-entries", async (event, taskId) => {
-    return db.endRunningTimeEntries(taskId);
   });
 
   ipcMain.handle("db-get-time-entries", async (event, taskId, limit) => {
@@ -240,13 +239,12 @@ function setupIpcHandlers() {
     "db-get-project-stats",
     async (event, projectId, startDate, endDate) => {
       return db.getProjectStats(projectId, startDate, endDate);
-    }
+    },
   );
 }
 
 // Clean up database connection on app quit
-app.on("before-quit", () => {
-  if (db) {
-    db.close();
-  }
+app.on("will-quit", (event) => {
+  db.close();
+  app.exit(0);
 });

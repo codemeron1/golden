@@ -1,42 +1,46 @@
 import { useState, useEffect, useRef } from 'react';
+import { formatDuration } from '../../utils/timeUtils'; // Import the shared formatDuration
 
-export default function Timer({ isRunning, startTime,  totalPauseDuration }) {
-  const [currentDuration, setCurrentDuration] = useState(0);
+export default function Timer({ isRunning, startTime, totalPauseDuration, initialAccumulatedDuration = 0 }) {
+  const [currentDisplayDurationMs, setCurrentDisplayDurationMs] = useState(initialAccumulatedDuration);
   const startTimeMs = useRef(0);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
-    startTimeMs.current = new Date(startTime).getTime();
-    const interval = setInterval(() => {
-      if (isRunning) {
-        const timeNowMs = Date.now();
-        let totalDurationMs = timeNowMs - startTimeMs.current;
-        if ( totalPauseDuration ) {
-          // console.log('deducating totalDurationMs -= totalPauseDuration; ', {
-          //   totalPauseDuration, totalDurationMs
-          // })
-          totalDurationMs -= totalPauseDuration;
-        }
-        // 68155
-        const totalMinutes = Math.floor(totalDurationMs / 60000);
-        const totalHour = Math.floor(totalMinutes / 60);
-        const totalMinute = totalMinutes % 60;
-        const totalSecond = Math.floor((totalDurationMs % 60000) / 1000);
-
-        const totalHourPadded = String(totalHour).padStart(2, 0);
-        const totalMinutePadded = String(totalMinute).padStart(2, 0);
-        const totalSecondPadded = String(totalSecond).padStart(2, 0);
-
-        setCurrentDuration(`${totalHourPadded}:${totalMinutePadded}:${totalSecondPadded}`);
+    if (isRunning && startTime) {
+      startTimeMs.current = new Date(startTime).getTime();
+      // Clear any existing interval to prevent multiple timers running
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
       }
-    }, 1000); // 1 second
 
+      intervalRef.current = setInterval(() => {
+        const timeNowMs = Date.now();
+        let totalLapsedMs = timeNowMs - startTimeMs.current;
+        let calculatedDuration = initialAccumulatedDuration + totalLapsedMs;
 
-    return () => clearInterval(interval);
-  }, [isRunning, startTime,  totalPauseDuration])
+        if (totalPauseDuration) {
+          calculatedDuration -= totalPauseDuration;
+        }
+        setCurrentDisplayDurationMs(calculatedDuration);
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      setCurrentDisplayDurationMs(initialAccumulatedDuration);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isRunning, startTime, totalPauseDuration, initialAccumulatedDuration]);
 
   return (
     <>
-      <h1>{currentDuration}</h1>
+      <p>{formatDuration(currentDisplayDurationMs / 1000)}</p>
     </>
   )
 }

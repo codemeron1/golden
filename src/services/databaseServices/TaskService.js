@@ -32,7 +32,6 @@ class TaskService {
 
     return true;
   }
-
   getTasks(projectId = null) {
     //get all the tasks
     let queryTasks = "SELECT * FROM tasks WHERE project_id = ?";
@@ -52,17 +51,13 @@ class TaskService {
 
     return stmtTasksResults;
   }
+  getSpecificTask(id) {
+    if (id === null || !id) return [];
 
-  getTask(id) {
-    const stmt = this.db.prepare(`
-      SELECT t.*, p.name as project_name, p.color as project_color
-      FROM tasks t
-      JOIN projects p ON t.project_id = p.id
-      WHERE t.id = ?
-    `);
-    return stmt.get(id);
+    const taskDetailsStmt = this.db.prepare(`SELECT * FROM tasks WHERE id = ?`);
+    const taskDetailsResult = taskDetailsStmt.get(id);
+    return taskDetailsResult;
   }
-
   updateTask(id, updates) {
     const fields = Object.keys(updates)
       .map((key) => `${key} = ?`)
@@ -74,9 +69,8 @@ class TaskService {
       WHERE id = ?
     `);
     stmt.run(...values, id);
-    return this.getTask(id);
+    return this.getSpecificTask(id);
   }
-
   deleteTask(id) {
     const stmt = this.db.prepare("DELETE FROM tasks WHERE id = ?");
     return stmt.run(id);
@@ -110,10 +104,10 @@ class TaskService {
       const id = task.id;
       const startedAt = new Date().toISOString();
       const stmt = this.db.prepare(`
-        INSERT INTO task_time_entries (task_id, started_at)
-        VALUES (?, ?)
+        INSERT INTO task_time_entries (task_id, started_at, status)
+        VALUES (?, ?, ?)
       `);
-      const result = stmt.run(id, startedAt);
+      const result = stmt.run(id, startedAt, 'running');
       return this.getSpecificTimeEntry(result.lastInsertRowid);
     } catch (error) {
       console.error("Error saving time entry:", error);
@@ -121,13 +115,26 @@ class TaskService {
     }
   }
   updateTimeEntry(task) {
-    console.log("update time entry: ", task)
     try {
       const id = task.id;
-      //get the started_at value from the database
-      const timeEntryData = this.getSpecificTimeEntry(id);
-      const startTime = timeEntryData.started_at;
+
+      //get the record id and started_at of the entry that has no ended_at value
+      const stmtGetRecord = this.db.prepare(`
+        SELECT id, started_at FROM task_time_entries 
+        WHERE task_id = ? AND ended_at IS NULL
+        ORDER BY id DESC LIMIT 1
+      `);
+      const resultGetRecord = stmtGetRecord.get(id);
+
+      if (!resultGetRecord) {
+        console.warn("No running time entry found for task", id);
+        return null;
+      }
+
+      const recordId = resultGetRecord.id;
+      const startTime = resultGetRecord.started_at;
       const endTime = new Date().toISOString();
+
       const computeTimeInSeconds = (startTime, endTime) => {
         if (!startTime || !endTime) {
           console.warn("Missing startTime or endTime for duration calculation");
@@ -145,29 +152,34 @@ class TaskService {
         const diff = end.getTime() - start.getTime();
         return Math.floor(diff / 1000);
       };
+      
       let duration = computeTimeInSeconds(startTime, endTime);
       if (duration < 1) duration = 0;
 
-      //get the record id ng entry na walang ended_at value
-      const stmtGetRecord = this.db.prepare(`
-        SELECT id FROM task_time_entries 
-        WHERE task_id = ? AND ended_at IS NULL
-        ORDER BY id DESC LIMIT 1
-      `);
-      const resultGetRecord = stmtGetRecord.get(id);
-      const recordId = resultGetRecord.id;
-
       const stmt = this.db.prepare(`
         UPDATE task_time_entries 
-        SET task_id = ?, ended_at = ?, duration = ? 
+        SET task_id = ?, ended_at = ?, duration = ?, status = 'stopped'
         WHERE id = ?
       `);
-      const result = stmt.run(id, endTime, duration, recordId);
-      return this.getSpecificTimeEntry(result.lastInsertRowidname);
+      stmt.run(id, endTime, duration, recordId);
+      return this.getSpecificTimeEntry(recordId);
 
     } catch (error) {
       console.error("Error updating time entry:", error);
       return null;
+    }
+  }
+  endRunningTimeEntries() {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE task_time_entries
+        SET ended_at = ?, status = 0
+        WHERE status = 'running' OR ended_at IS NULL
+      `);
+      const currentTime = new Date().toISOString();
+      return stmt.run(currentTime);
+    } catch (error) {
+      console.error("Error ending running time entries:", error);
     }
   }
 }

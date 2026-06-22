@@ -1,20 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { GripVertical, Play, Clock, Square, History } from 'lucide-react';
-import { formatTime, calculateDurationWithHourMinuteSecond, formatDuration } from '../../utils/timeUtils';
+import { useState, useEffect } from 'react';
+import { GripVertical, Play, Clock, Square } from 'lucide-react';
+import { formatTime, formatDuration } from '../../utils/timeUtils';
+import { useTaskHistory } from '../../context/TaskHistoryContext';
 
 const TaskCard = ({ task }) => {
+  const { onOpenHistory, setTimeDuration } = useTaskHistory();
   const [trackTimeStatus, setTrackTimeStatus] = useState('play');
   const [timeSpent, setTimeSpent] = useState('00:00:00');
-  const [accumulatedSeconds, setAccumulatedSeconds] = useState(0);
   const [activeStartTime, setActiveStartTime] = useState(null);
+  const [accumulatedSeconds, setAccumulatedSeconds] = useState(0)
 
   const handleDragStart = (e) => {
     e.dataTransfer.setData('taskId', task.id.toString());
   };
-
   const handleToggleTimer = async (e) => {
     e.preventDefault();
-    e.stopPropagation(); // Prevent the parent click handler (history modal) from firing
+    e.stopPropagation();
 
     if (trackTimeStatus === 'play') {
       // Start Tracking
@@ -26,7 +27,7 @@ const TaskCard = ({ task }) => {
       // Stop Tracking
       setTrackTimeStatus('play');
       await window.electronAPI.db.updateTimeEntry(task);
-      
+
       // Sync accumulated time from DB records to ensure precision after stopping
       const updatedEntries = await window.electronAPI.db.getSpecificTaskTimeEntries(task.id);
       if (updatedEntries) {
@@ -40,7 +41,6 @@ const TaskCard = ({ task }) => {
       setActiveStartTime(null);
     }
   };
-
   const renderTrackTimeStatusButton = () => {
     switch (trackTimeStatus) {
       case 'play':
@@ -49,10 +49,11 @@ const TaskCard = ({ task }) => {
         return <Square className="w-3 h-3 mr-1 fill-current text-red-500" />
     }
   }
-
-  const handleShowTaskHistory = async () => {
-  }
-
+  const handleCardClick = (e) => {
+    if (!e.target.closest('#btnTrackTime')) {
+      onOpenHistory(task);
+    }
+  };
   useEffect(() => {
     // Load initial state and check for active running sessions
     const timeEntries = task.timeEntries || [];
@@ -75,7 +76,6 @@ const TaskCard = ({ task }) => {
       setTimeSpent(formatDuration(total));
     }
   }, [task.id, task.timeEntries]);
-
   useEffect(() => {
     let interval;
     if (trackTimeStatus === 'stop' && activeStartTime) {
@@ -86,15 +86,16 @@ const TaskCard = ({ task }) => {
     }
     return () => clearInterval(interval);
   }, [trackTimeStatus, activeStartTime, accumulatedSeconds]);
+  useEffect(() => {
+    setTimeDuration(timeSpent);
+  }, [timeSpent]);
 
   return (
     <div
-      draggable
-      onClick = {handleShowTaskHistory}
+      draggable={true}
       onDragStart={handleDragStart}
-      className="bg-white p-3.5 rounded-lg border border-gray-200 shadow-sm 
-      hover:bg-gray-100 transition-shadow duration-200 cursor-grab 
-      active:cursor-grabbing"
+      onClick={handleCardClick}
+      className="bg-white p-3.5 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-100 transition-shadow duration-200 cursor-pointer active:cursor-grabbing"
       title='Click to show task history log. Drag to move to specific status.'
     >
       <div className="flex items-start gap-2">
@@ -107,19 +108,27 @@ const TaskCard = ({ task }) => {
             )}
           </div>
 
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between mt-2 w-full">
             <div className="flex items-center text-[10px] text-gray-400">
               <Clock className="h-3 w-3 mr-1" />
               <span>{formatTime(task.created_at)}</span>
             </div>
-            <button
-              id='btnTrackTime'
-              className={`flex items-center px-2.5 py-1 text-xs font-medium text-golden-600 bg-blue-50 hover:bg-golden-100 rounded-md transition-colors cursor-pointer`}
-              onClick={handleToggleTimer}
-            >
-              {renderTrackTimeStatusButton()}
-              <p>{timeSpent}</p>
-            </button>
+            {
+              task.status === 'in-progress' && (
+                <button
+                  id='btnTrackTime'
+                  className={`flex items-center px-2.5 py-1 text-xs font-medium
+                    ${trackTimeStatus === 'play'
+                      ? 'text-golden-600 bg-blue-50 hover:bg-red-100'
+                      : 'text-red-600 bg-red-50 hover:bg-golden-100'
+                    } rounded-md transition-colors cursor-pointer`}
+                  onClick={handleToggleTimer}
+                >
+                  {renderTrackTimeStatusButton()}
+                  <p>{timeSpent}</p>
+                </button>
+              )
+            }
           </div>
         </div>
       </div>

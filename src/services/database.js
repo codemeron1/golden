@@ -6,18 +6,21 @@ const { app } = require("electron");
 const SubTaskService = require("./databaseServices/SubTaskService");
 const TaskService = require("./databaseServices/TaskService");
 const ProjectService = require("./databaseServices/ProjectService");
+const { DEVELOPMENT_MODE } = require("../constants/constants.js");
 
 class DatabaseService {
   constructor() {
     try {
-      // development mode: database is in the project directory (src/database/timetracker.db)
-      const dbDir = path.join(__dirname, "../database");
-      const dbPath = path.join(dbDir, "timetracker.db");
-
+      let dbDir, dbPath;
       // production mode
-      // const userDataPath = app.getPath("userData");
-      // const dbDir = path.join(userDataPath, "database");
-      // const dbPath = path.join(dbDir, "timetracker.db");
+      const userDataPath = app.getPath("userData");
+      dbDir = path.join(userDataPath, "database");
+      dbPath = path.join(dbDir, "timetracker.db");
+      if (DEVELOPMENT_MODE == "development") {
+        // development mode: database is in the project directory (src/database/timetracker.db)
+        dbDir = path.join(__dirname, "../database");
+        dbPath = path.join(dbDir, "timetracker.db");
+      }
 
       // Ensure database directory exists
       if (!fs.existsSync(dbDir)) {
@@ -25,6 +28,8 @@ class DatabaseService {
       }
       // Initialize database connection
       this.db = new Database(dbPath);
+      this.db.pragma('journal_mode = WAL');
+      this.db.pragma('busy_timeout = 3000');
       this.ProjectService = new ProjectService(this.db);
       this.TaskService = new TaskService(this.db);
       this.SubTaskService = new SubTaskService(this.db);
@@ -48,7 +53,6 @@ class DatabaseService {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-
     // Create tasks table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS tasks (
@@ -64,7 +68,6 @@ class DatabaseService {
         FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
       )
     `);
-
     // create task_time_entries table
     this.db.exec(`
         CREATE TABLE IF NOT EXISTS task_time_entries (
@@ -75,9 +78,17 @@ class DatabaseService {
           duration INTEGER, 
           notes TEXT,
           FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-);
+      );
     `);
-
+    // add status column sa task_time_entries: stopped; running; interrupted
+    const columns = this.db
+      .prepare("PRAGMA table_info(task_time_entries);")
+      .all();
+    if (!columns.find((col) => col.name === "status")) {
+      this.db.exec(
+        `ALTER TABLE task_time_entries ADD COLUMN status TEXT DEFAULT 'running';`,
+      );
+    }
     // Create sub_tasks table
     this.db.exec(`
         CREATE TABLE IF NOT EXISTS sub_tasks (
@@ -95,7 +106,6 @@ class DatabaseService {
           FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
         )
     `);
-
     // Create time_entries table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS time_entries (
@@ -109,7 +119,6 @@ class DatabaseService {
         FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
       )
     `);
-
     // Create indexes for better performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks (project_id);
@@ -135,7 +144,6 @@ class DatabaseService {
     const result = stmt.run(taskId, currentDateTime, description);
     return this.getTimeEntry(result.lastInsertRowid);
   }
-
   endTimeEntry(id) {
     const currentDateTime = new Date().toISOString();
     const stmt = this.db.prepare(`
@@ -147,26 +155,19 @@ class DatabaseService {
     stmt.run(currentDateTime, currentDateTime, id);
     return this.getTimeEntry(id);
   }
-
-  endRunningTimeEntries(taskId = null) {
-    const currentDateTime = new Date().toISOString();
-    let query = `
-      UPDATE time_entries 
-      SET end_time = ?,
-          duration = (strftime('%s', ?) - strftime('%s', start_time))
-      WHERE end_time IS NULL
-    `;
-
-    if (taskId) {
-      query += " AND task_id = ?";
-      const stmt = this.db.prepare(query);
-      return stmt.run(currentDateTime, currentDateTime, taskId);
-    } else {
-      const stmt = this.db.prepare(query);
-      return stmt.run(currentDateTime, currentDateTime);
+  //ends all time entries na walang data ang ended_at field
+  endRunningTimeEntries() {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE task_time_entries
+        SET ended_at = ?, status = 'interrupted'
+        WHERE ended_at IS NULL
+      `);
+      stmt.run(new Date().toISOString());
+    } catch (error) {
+      console.error("Error ending running time entries:", error);
     }
   }
-
   getTimeEntries(taskId = null, limit = 100) {
     let query = `
       SELECT te.*, t.name as task_name, p.name as project_name, p.color as project_color
@@ -184,7 +185,6 @@ class DatabaseService {
     const stmt = this.db.prepare(query);
     return taskId ? stmt.all(taskId, limit) : stmt.all(limit);
   }
-
   getTimeEntry(id) {
     const stmt = this.db.prepare(`
       SELECT te.*, t.name as task_name, p.name as project_name, p.color as project_color
@@ -195,7 +195,6 @@ class DatabaseService {
     `);
     return stmt.get(id);
   }
-
   getRunningTimeEntry() {
     const stmt = this.db.prepare(`
       SELECT te.*, t.name as task_name, p.name as project_name, p.color as project_color
@@ -208,12 +207,11 @@ class DatabaseService {
     `);
     return stmt.get();
   }
-
   updateTimeEntry(id, updates) {
     const fields = Object.keys(updates)
       .map((key) => `${key} = ?`)
       .join(", ");
-  const values = Object.values(updates);
+    const values = Object.values(updates);
     const stmt = this.db.prepare(`
       UPDATE time_entries 
       SET ${fields}
@@ -222,7 +220,6 @@ class DatabaseService {
     stmt.run(...values, id);
     return this.getTimeEntry(id);
   }
-
   deleteTimeEntry(id) {
     const stmt = this.db.prepare("DELETE FROM time_entries WHERE id = ?");
     return stmt.run(id);

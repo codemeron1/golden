@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     saveTimeEntry: (task) => ipcRenderer.invoke("db-task-save-time-entry", task),
     updateTimeEntry: (task, recordId) => ipcRenderer.invoke("db-task-update-time-entry", task, recordId),
     getSpecificTaskTimeEntries: (taskId) => ipcRenderer.invoke("db-get-specific-task-time-entries", taskId),
+    enRunningTimeEntries: () => ipcRenderer.invoke("db-end-running-time-entries"),
     //db: task_time_entries methods end
 
 
