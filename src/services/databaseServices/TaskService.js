@@ -1,61 +1,109 @@
-const SubTaskService = require("./SubTaskService");
-const { extractSubTasks } = require("../../utils/golden");
-
 class TaskService {
   constructor(db) {
     this.db = db;
-    this.SubTaskService = new SubTaskService(db);
-    this.tables = {
-      tasks: "tasks",
-      task_time_entries: "task_time_entries",
-    };
   }
   // Task methods
   createTask(taskData) {
-    const { projectId, name, description, subTasks, status } = taskData;
-    //create task
-    const stmt = this.db.prepare(`
+    try {
+      const { projectId, name, description, subTasks, status, connectedProjects } = taskData;
+      //create task
+      const stmt = this.db.prepare(`
       INSERT INTO tasks (project_id, name, description, status)
       VALUES (?, ?, ?, ?)
     `);
-    const result = stmt.run(projectId, name, description, status);
-    const taskId = result.lastInsertRowid;
+      const result = stmt.run(projectId, name, description, status);
+      const taskId = result.lastInsertRowid;
 
-    //create subTasks
-    const subTaskList = extractSubTasks(subTasks);
-    subTaskList.forEach((subTaskName) => {
-      this.SubTaskService.createSubTask({
-        taskId: taskId,
-        name: subTaskName,
-      });
-    });
+      //insert connected projects into tasks_connected_projects
+      if (connectedProjects && connectedProjects.length > 0) {
+        const insertConnected = this.db.prepare(`
+        INSERT OR IGNORE INTO tasks_connected_projects (task_id, project_id)
+        VALUES (?, ?)
+      `);
+        const insertMany = this.db.transaction((taskId, projectIds) => {
+          for (const pId of projectIds) {
+            if (Number(pId) !== Number(projectId)) {
+              insertConnected.run(taskId, pId);
+            }
+          }
+        });
+        insertMany(taskId, connectedProjects);
+      }
 
-    return true;
+      return true;
+    } catch (error) {
+      console.error("App Error creating task:", error);
+      return false;
+    }
+
   }
   getTasks(projectId = null) {
-    //get all the tasks
-    let queryTasks = "SELECT * FROM tasks WHERE project_id = ?";
-    const stmtTasks = this.db.prepare(queryTasks);
-    const stmtTasksResults = stmtTasks.all(projectId);
+    let stmtTasksResults;
+
+    if (projectId) {
+      // Fetch tasks belonging to the project OR connected to it
+      const queryTasks = `
+        SELECT DISTINCT 
+          t.*,
+          p.name as primary_project_name,
+          p.color as primary_project_color,
+          CASE WHEN t.project_id = ? THEN 1 ELSE 0 END as is_primary
+        FROM tasks t
+        JOIN projects p ON t.project_id = p.id
+        LEFT JOIN tasks_connected_projects tcp ON t.id = tcp.task_id
+        WHERE t.project_id = ? OR tcp.project_id = ?
+        ORDER BY t.created_at DESC
+      `;
+      const stmtTasks = this.db.prepare(queryTasks);
+      stmtTasksResults = stmtTasks.all(projectId, projectId, projectId);
+    } else {
+      // Fallback: Fetch all tasks
+      const queryTasks = `
+        SELECT t.*, p.name as primary_project_name, p.color as primary_project_color, 1 as is_primary
+        FROM tasks t
+        JOIN projects p ON t.project_id = p.id
+        ORDER BY t.created_at DESC
+      `;
+      const stmtTasks = this.db.prepare(queryTasks);
+      stmtTasksResults = stmtTasks.all();
+    }
     if (stmtTasksResults.length === 0) {
       return [];
     }
-
-    //get all the time entries for each task
-    let queryTimeEntries = "SELECT * FROM task_time_entries WHERE task_id = ?";
-    const stmtTimeEntries = this.db.prepare(queryTimeEntries);
+    // Prepare helper statements
+    const stmtTimeEntries = this.db.prepare("SELECT * FROM task_time_entries WHERE task_id = ?");
+    const stmtConnected = this.db.prepare(`
+      SELECT p.* FROM projects p
+      JOIN tasks_connected_projects tcp ON p.id = tcp.project_id
+      WHERE tcp.task_id = ?
+    `);
+    // Populate child records for each task
     stmtTasksResults.forEach((task) => {
-      const stmtTimeEntriesResult = stmtTimeEntries.all(task.id);
-      task.timeEntries = stmtTimeEntriesResult;
+      task.timeEntries = stmtTimeEntries.all(task.id);
+      task.connectedProjects = stmtConnected.all(task.id);
     });
-
     return stmtTasksResults;
   }
   getSpecificTask(id) {
-    if (id === null || !id) return [];
+    if (id === null || !id) return null;
+    const queryTask = `
+      SELECT t.*, p.name as primary_project_name, p.color as primary_project_color
+      FROM tasks t
+      JOIN projects p ON t.project_id = p.id
+      WHERE t.id = ?
+    `;
+    const stmt = this.db.prepare(queryTask);
+    const taskDetailsResult = stmt.get(id);
+    if (taskDetailsResult) {
+      // Get all connected projects
+      const connectedProjectsStmt = this.db.prepare(`
+        SELECT p.* FROM projects p
+        JOIN tasks_connected_projects tcp ON p.id = tcp.project_id
+        WHERE tcp.task_id = ?
+      `);
+      taskDetailsResult.connectedProjects = connectedProjectsStmt.all(id);
+    }
 
-    const taskDetailsStmt = this.db.prepare(`SELECT * FROM tasks WHERE id = ?`);
-    const taskDetailsResult = taskDetailsStmt.get(id);
     return taskDetailsResult;
   }
   updateTask(id, updates) {
@@ -152,7 +200,7 @@ class TaskService {
         const diff = end.getTime() - start.getTime();
         return Math.floor(diff / 1000);
       };
-      
+
       let duration = computeTimeInSeconds(startTime, endTime);
       if (duration < 1) duration = 0;
 

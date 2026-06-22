@@ -3,7 +3,6 @@ const Database = require("better-sqlite3");
 const path = require("path");
 const fs = require("fs");
 const { app } = require("electron");
-const SubTaskService = require("./databaseServices/SubTaskService");
 const TaskService = require("./databaseServices/TaskService");
 const ProjectService = require("./databaseServices/ProjectService");
 const { DEVELOPMENT_MODE } = require("../constants/constants.js");
@@ -32,7 +31,6 @@ class DatabaseService {
       this.db.pragma('busy_timeout = 3000');
       this.ProjectService = new ProjectService(this.db);
       this.TaskService = new TaskService(this.db);
-      this.SubTaskService = new SubTaskService(this.db);
       // Initialize tables
       this.initializeTables();
     } catch (error) {
@@ -80,31 +78,17 @@ class DatabaseService {
           FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
       );
     `);
-    // add status column sa task_time_entries: stopped; running; interrupted
-    const columns = this.db
-      .prepare("PRAGMA table_info(task_time_entries);")
-      .all();
-    if (!columns.find((col) => col.name === "status")) {
-      this.db.exec(
-        `ALTER TABLE task_time_entries ADD COLUMN status TEXT DEFAULT 'running';`,
-      );
-    }
-    // Create sub_tasks table
+    // create tasks_connected_projects
     this.db.exec(`
-        CREATE TABLE IF NOT EXISTS sub_tasks (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          task_id INTEGER NOT NULL,
-          name TEXT NOT NULL,
-          status TEXT DEFAULT 'todo',
-          duration INTEGER, -- duration in milliseconds
-          started_at DATETIME,
-          pause_started_at DATETIME,
-          total_paused_ms INTEGER DEFAULT 0,
-          ended_at DATETIME,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
-        )
+        CREATE TABLE IF NOT EXISTS tasks_connected_projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            project_id INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            UNIQUE(task_id, project_id)
+        );
     `);
     // Create time_entries table
     this.db.exec(`
@@ -119,6 +103,23 @@ class DatabaseService {
         FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
       )
     `);
+
+    // migration or updates for tables
+    // table task_time_entries: add status column sa task_time_entries: stopped; running; interrupted
+    const columns = this.db
+      .prepare("PRAGMA table_info(task_time_entries);")
+      .all();
+    if (!columns.find((col) => col.name === "status")) {
+      this.db.exec(
+        `ALTER TABLE task_time_entries ADD COLUMN status TEXT DEFAULT 'running';`,
+      );
+    }
+
+    // drop unused tables
+    this.db.exec(`
+      DROP TABLE IF EXISTS sub_tasks;  
+    `);
+
     // Create indexes for better performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks (project_id);
@@ -126,10 +127,6 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_time_entries_start_time ON time_entries (start_time);
     `);
   }
-
-  // ProjectService = new ProjectService(this.db);
-  // TaskService = new TaskService(this.db);
-  // SubTaskService = new SubTaskService(this.db);
 
   // Time entry methods
   startTimeEntry(taskId, description = "") {

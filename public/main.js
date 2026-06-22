@@ -71,7 +71,7 @@ app.whenReady().then(() => {
     dialog.showErrorBox(
       "Database Error",
       "Failed to initialize database. Please make sure you have proper permissions and try again.\n\nError: " +
-        error.message,
+      error.message,
     );
     app.quit();
   }
@@ -242,9 +242,3 @@ function setupIpcHandlers() {
     },
   );
 }
-
-// Clean up database connection on app quit
-app.on("will-quit", (event) => {
-  db.close();
-  app.exit(0);
-});

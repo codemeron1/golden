@@ -95,9 +95,23 @@ const TaskCard = ({ task }) => {
       draggable={true}
       onDragStart={handleDragStart}
       onClick={handleCardClick}
-      className="bg-white p-3.5 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-100 transition-shadow duration-200 cursor-pointer active:cursor-grabbing"
+      className="bg-white p-3.5 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-100 transition-shadow duration-200 cursor-pointer active:cursor-grabbing flex flex-col"
       title='Click to show task history log. Drag to move to specific status.'
     >
+      {/* 1. Context Badge: If it's a connected/related task from another project */}
+      {!task.is_primary && (
+        <span 
+          className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border mb-1.5 self-start"
+          style={{
+            borderColor: task.primary_project_color || '#f59e0b',
+            backgroundColor: `${task.primary_project_color || '#f59e0b'}1A`,
+            color: task.primary_project_color || '#d97706'
+          }}
+        >
+          📁 From: {task.primary_project_name}
+        </span>
+      )}
+
       <div className="flex items-start gap-2">
         <GripVertical className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
         <div className='flex flex-col flex-1 min-w-0'>
@@ -108,7 +122,7 @@ const TaskCard = ({ task }) => {
             )}
           </div>
 
-          <div className="flex items-center justify-between mt-2 w-full">
+          <div className="flex items-center justify-between mt-2.5 w-full">
             <div className="flex items-center text-[10px] text-gray-400">
               <Clock className="h-3 w-3 mr-1" />
               <span>{formatTime(task.created_at)}</span>
@@ -133,7 +147,8 @@ const TaskCard = ({ task }) => {
         </div>
       </div>
     </div>
-  )
+  );
+
 }
 
 export default TaskCard;
