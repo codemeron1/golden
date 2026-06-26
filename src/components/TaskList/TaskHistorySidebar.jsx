@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, CalendarDays, Hash, Activity, Timer } from 'lucide-react';
+import { X, Clock, CalendarDays, Activity, Timer } from 'lucide-react';
 import {
   formatDuration,
   formatTime,
@@ -8,6 +8,7 @@ import {
   calculateDuration
 } from '../../utils/timeUtils';
 import { useTaskHistory } from '../../context/TaskHistoryContext';
+import TaskHistorySidebarTimeEntryItem from "./TaskHistorySidebar/TaskHistorySidebarTimeEntryItem";
 
 const STATUS_STYLES = {
   todo: { label: 'To Do', dot: 'bg-slate-400', badge: 'bg-slate-100 text-slate-700' },
@@ -176,42 +177,11 @@ export default function TaskHistorySidebar({ task, onClose }) {
                 {timeEntries?.length > 0 ? (
                   <ul className="space-y-2">
                     {timeEntries.map((entry, i) => {
-                      const isRunning = entry?.status == 'running';
-                      const dur = entry.duration
-                        ? entry.duration
-                        : (entry.started_at && entry.ended_at
-                          ? calculateDuration(entry.started_at, entry.ended_at)
-                          : null);
-                      return (
-                        <li key={i} className={`rounded-lg border px-3 py-2.5 
-                          ${isRunning ? 'border-blue-200 bg-blue-50/60' : 'border-gray-100 bg-gray-50'}`
-                        }>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="flex items-center gap-1 text-[10px] text-gray-400">
-                              <Hash className="h-3 w-3" />{i + 1}
-                            </span>
-                            {isRunning ? (
-                              <span className="flex items-center gap-1 text-[10px] font-medium text-blue-500">
-                                <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
-                                Running
-                              </span>
-                            ) : dur != null ? (
-                              <span className="text-[10px] font-mono font-semibold text-gray-600 bg-white 
-                                text-gray-600 border border-gray-200 px-1.5 py-0.5 rounded">
-                                {formatDuration(dur)}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="flex items-center gap-1 text-[11px] text-gray-500">
-                            <span>{formatTime(entry.started_at)}</span>
-                            <span>—</span>
-                            <span>{entry.ended_at ? formatTime(entry.ended_at) : '…'}</span>
-                          </div>
-                          {entry.description && (
-                            <p className="text-[11px] text-gray-500 mt-1 italic truncate">{entry.description}</p>
-                          )}
-                        </li>
-                      );
+                      return <TaskHistorySidebarTimeEntryItem
+                        key={`history-task-time-entry-${i}`}
+                        entry={entry}
+                        index={i}
+                        onRefresh={loadTaskData} />
                     })}
                   </ul>
                 ) : (

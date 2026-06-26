@@ -127,7 +127,7 @@ class TaskService {
   getSpecificTaskTimeEntries(taskId) {
     try {
       const stmt = this.db.prepare(
-        `SELECT * FROM ${this.tables.task_time_entries} WHERE task_id = ?`,
+        `SELECT *, notes AS description FROM task_time_entries WHERE task_id = ?`,
       );
       const result = stmt.all(taskId);
       return result;
@@ -139,7 +139,7 @@ class TaskService {
   getSpecificTimeEntry(id) {
     try {
       const stmt = this.db.prepare(
-        `SELECT * FROM ${this.tables.task_time_entries} WHERE id = ?`,
+        `SELECT * FROM task_time_entries WHERE id = ?`,
       );
       return stmt.get(id);
     } catch (error) {
@@ -228,6 +228,41 @@ class TaskService {
       return stmt.run(currentTime);
     } catch (error) {
       console.error("Error ending running time entries:", error);
+    }
+  }
+  updateSpecificTimeEntry(id, updates) {
+    try {
+      const { started_at, ended_at, description } = updates;
+
+      // Auto-compute duration in seconds if start and end times are provided
+      let duration = null;
+      if (started_at && ended_at) {
+        const start = new Date(started_at).getTime();
+        const end = new Date(ended_at).getTime();
+        duration = Math.max(0, Math.floor((end - start) / 1000));
+      }
+      const stmt = this.db.prepare(`
+        UPDATE task_time_entries
+        SET started_at = ?, ended_at = ?, duration = ?, notes = ?
+        WHERE id = ?
+      `);
+      stmt.run(started_at, ended_at, duration, description, id);
+      return true;
+    } catch (error) {
+      console.error("Error updating specific task time entry:", error);
+      return false;
+    }
+  }
+  deleteSpecificTimeEntry(id) {
+    try {
+      const stmt = this.db.prepare(`
+        DELETE FROM task_time_entries WHERE id = ?
+      `);
+      stmt.run(id);
+      return true;
+    } catch (error) {
+      console.error("Error deleting specific task time entry:", error);
+      return false;
     }
   }
 }

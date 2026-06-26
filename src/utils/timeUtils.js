@@ -77,3 +77,13 @@ export function formatShortDate(dateString) {
   if (!dateString) return "";
   return format(new Date(dateString), "MMMM d, yyyy");
 }
+
+export function toLocalISOString(dateStringOrObject) {
+  if (!dateStringOrObject) return "";
+  const date = new Date(dateStringOrObject);
+  if (isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().slice(0, 19);
+}
+

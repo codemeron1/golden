@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Play, Pause, Square, Clock, Plus, Edit2, Trash2 } from 'lucide-react';
-import { formatDuration, formatDurationShort, formatTime, formatTimeShort } from '../utils/timeUtils';
+import { formatDuration, formatDurationShort, formatTime, formatTimeShort, toLocalISOString } from '../utils/timeUtils';
 
 function TimeTracker({ task, runningEntry, onEntryUpdate }) {
   const [currentEntry, setCurrentEntry] = useState(null);
@@ -112,8 +112,8 @@ function TimeTracker({ task, runningEntry, onEntryUpdate }) {
     setEditingEntry(entry.id);
     setEditForm({
       description: entry.description || '',
-      start_time: entry.start_time ? new Date(entry.start_time).toISOString().slice(0, 16) : '',
-      end_time: entry.end_time ? new Date(entry.end_time).toISOString().slice(0, 16) : ''
+      start_time: entry.start_time ? toLocalISOString(entry.start_time) : '',
+      end_time: entry.end_time ? toLocalISOString(entry.end_time) : ''
     });
   };
 

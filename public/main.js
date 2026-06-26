@@ -233,6 +233,13 @@ function setupIpcHandlers() {
   ipcMain.handle("db-delete-time-entry", async (event, id) => {
     return db.deleteTimeEntry(id);
   });
+  ipcMain.handle("db-update-specific-task-time-entry", async (event, id, updates) => {
+    return db.TaskService.updateSpecificTimeEntry(id, updates);
+  });
+  
+  ipcMain.handle("db-delete-specific-task-time-entry", async (event, id) => {
+    return db.TaskService.deleteSpecificTimeEntry(id);
+  });
 
   // Statistics handlers
   ipcMain.handle(
