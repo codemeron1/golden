@@ -138,7 +138,7 @@ export default function TaskHistorySidebarTimeEntryItem({ entry, index, onRefres
 
       <div className="flex items-center justify-between mb-1 pr-12">
         <span className="flex items-center gap-1 text-[10px] text-gray-400">
-          <Hash className="h-3 w-3" />{index} dfgdfgdgdf
+          <Hash className="h-3 w-3" />{index + 1}
         </span>
         {isRunning ? (
           <span className="flex items-center gap-1 text-[10px] font-medium text-blue-500">
