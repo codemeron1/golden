@@ -81,5 +81,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     // Statistics
     getProjectStats: (projectId, startDate, endDate) =>
       ipcRenderer.invoke("db-get-project-stats", projectId, startDate, endDate),
+
+    // Project Reports
+    getProjectTimeReport: (projectId, startDate, endDate) =>
+      ipcRenderer.invoke("db-get-project-time-report", projectId, startDate, endDate),
+    getProjectTimeSummary: (projectId, startDate, endDate) =>
+      ipcRenderer.invoke("db-get-project-time-summary", projectId, startDate, endDate),
   },
 });

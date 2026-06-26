@@ -3,7 +3,7 @@ import { FolderOpen, Clock, CheckSquare, Edit2, Trash2, MoreVertical } from 'luc
 
 import ProjectCard from './ProjectList/ProjectCard.jsx';
 
-function ProjectList({ projects, onProjectSelect, onRefresh }) {
+function ProjectList({ projects, onProjectSelect, onViewReport, onRefresh }) {
   const [selectedProject, setSelectedProject] = useState(null);
 
   return (
@@ -28,6 +28,8 @@ function ProjectList({ projects, onProjectSelect, onRefresh }) {
               key={`project-cards-${project.id}`}
               project={project}
               onProjectSelect={onProjectSelect}
+              onViewReport={onViewReport}
+              onRefresh={onRefresh}
             />
           ))}
         </div>

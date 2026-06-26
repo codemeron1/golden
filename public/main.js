@@ -248,4 +248,20 @@ function setupIpcHandlers() {
       return db.getProjectStats(projectId, startDate, endDate);
     },
   );
+
+  // Project Report handlers
+  ipcMain.handle(
+    "db-get-project-time-report",
+    async (event, projectId, startDate, endDate) => {
+      return db.ReportService.getProjectTimeReport(projectId, startDate, endDate);
+    },
+  );
+
+  ipcMain.handle(
+    "db-get-project-time-summary",
+    async (event, projectId, startDate, endDate) => {
+      return db.ReportService.getProjectTimeSummary(projectId, startDate, endDate);
+    },
+  );
 }
+

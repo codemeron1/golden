@@ -5,6 +5,7 @@ const fs = require("fs");
 const { app } = require("electron");
 const TaskService = require("./databaseServices/TaskService");
 const ProjectService = require("./databaseServices/ProjectService");
+const ReportService = require("./databaseServices/ReportService");
 const { DEVELOPMENT_MODE } = require("../constants/constants.js");
 
 class DatabaseService {
@@ -31,6 +32,7 @@ class DatabaseService {
       this.db.pragma('busy_timeout = 3000');
       this.ProjectService = new ProjectService(this.db);
       this.TaskService = new TaskService(this.db);
+      this.ReportService = new ReportService(this.db);
       // Initialize tables
       this.initializeTables();
     } catch (error) {
@@ -109,33 +111,43 @@ class DatabaseService {
     // Create indexes for better performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks (project_id);
-      CREATE INDEX IF NOT EXISTS idx_time_entries_task_id ON time_entries (task_id);
-      CREATE INDEX IF NOT EXISTS idx_time_entries_start_time ON time_entries (start_time);
+      CREATE INDEX IF NOT EXISTS idx_task_time_entries_task_id ON task_time_entries (task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_time_entries_started_at ON task_time_entries (started_at);
     `);
   }
 
   // Time entry methods
   startTimeEntry(taskId, description = "") {
-    // End any running time entries for this task
-    this.endRunningTimeEntries(taskId);
+    // End any running time entries
+    this.endRunningTimeEntries();
 
     const currentDateTime = new Date().toISOString();
     const stmt = this.db.prepare(`
-      INSERT INTO time_entries (task_id, start_time, description)
-      VALUES (?, ?, ?)
+      INSERT INTO task_time_entries (task_id, started_at, notes, status)
+      VALUES (?, ?, ?, 'running')
     `);
     const result = stmt.run(taskId, currentDateTime, description);
     return this.getTimeEntry(result.lastInsertRowid);
   }
   endTimeEntry(id) {
     const currentDateTime = new Date().toISOString();
+    
+    // Calculate duration in seconds
+    const entry = this.db.prepare("SELECT started_at FROM task_time_entries WHERE id = ?").get(id);
+    let duration = 0;
+    if (entry && entry.started_at) {
+      const diff = new Date(currentDateTime).getTime() - new Date(entry.started_at).getTime();
+      duration = Math.max(0, Math.floor(diff / 1000));
+    }
+
     const stmt = this.db.prepare(`
-      UPDATE time_entries 
-      SET end_time = ?,
-          duration = (strftime('%s', ?) - strftime('%s', start_time))
-      WHERE id = ? AND end_time IS NULL
+      UPDATE task_time_entries 
+      SET ended_at = ?,
+          duration = ?,
+          status = 'stopped'
+      WHERE id = ? AND ended_at IS NULL
     `);
-    stmt.run(currentDateTime, currentDateTime, id);
+    stmt.run(currentDateTime, duration, id);
     return this.getTimeEntry(id);
   }
   //ends all time entries na walang data ang ended_at field
@@ -153,50 +165,63 @@ class DatabaseService {
   }
   getTimeEntries(taskId = null, limit = 100) {
     let query = `
-      SELECT te.*, t.name as task_name, p.name as project_name, p.color as project_color
-      FROM time_entries te
-      JOIN tasks t ON te.task_id = t.id
+      SELECT tte.id, tte.task_id, tte.started_at AS start_time, tte.ended_at AS end_time, 
+             tte.duration, tte.notes AS description, tte.status,
+             t.name as task_name, p.name as project_name, p.color as project_color
+      FROM task_time_entries tte
+      JOIN tasks t ON tte.task_id = t.id
       JOIN projects p ON t.project_id = p.id
     `;
 
     if (taskId) {
-      query += " WHERE te.task_id = ?";
+      query += " WHERE tte.task_id = ?";
     }
 
-    query += " ORDER BY te.start_time DESC LIMIT ?";
+    query += " ORDER BY tte.started_at DESC LIMIT ?";
 
     const stmt = this.db.prepare(query);
     return taskId ? stmt.all(taskId, limit) : stmt.all(limit);
   }
   getTimeEntry(id) {
     const stmt = this.db.prepare(`
-      SELECT te.*, t.name as task_name, p.name as project_name, p.color as project_color
-      FROM time_entries te
-      JOIN tasks t ON te.task_id = t.id
+      SELECT tte.id, tte.task_id, tte.started_at AS start_time, tte.ended_at AS end_time, 
+             tte.duration, tte.notes AS description, tte.status,
+             t.name as task_name, p.name as project_name, p.color as project_color
+      FROM task_time_entries tte
+      JOIN tasks t ON tte.task_id = t.id
       JOIN projects p ON t.project_id = p.id
-      WHERE te.id = ?
+      WHERE tte.id = ?
     `);
     return stmt.get(id);
   }
   getRunningTimeEntry() {
     const stmt = this.db.prepare(`
-      SELECT te.*, t.name as task_name, p.name as project_name, p.color as project_color
-      FROM time_entries te
-      JOIN tasks t ON te.task_id = t.id
+      SELECT tte.id, tte.task_id, tte.started_at AS start_time, tte.ended_at AS end_time, 
+             tte.duration, tte.notes AS description, tte.status,
+             t.name as task_name, p.name as project_name, p.color as project_color
+      FROM task_time_entries tte
+      JOIN tasks t ON tte.task_id = t.id
       JOIN projects p ON t.project_id = p.id
-      WHERE te.end_time IS NULL
-      ORDER BY te.start_time DESC
+      WHERE tte.ended_at IS NULL
+      ORDER BY tte.started_at DESC
       LIMIT 1
     `);
     return stmt.get();
   }
   updateTimeEntry(id, updates) {
-    const fields = Object.keys(updates)
+    const mappedUpdates = {};
+    if (updates.description !== undefined) mappedUpdates.notes = updates.description;
+    if (updates.start_time !== undefined) mappedUpdates.started_at = updates.start_time;
+    if (updates.end_time !== undefined) mappedUpdates.ended_at = updates.end_time;
+    if (updates.duration !== undefined) mappedUpdates.duration = updates.duration;
+    if (updates.status !== undefined) mappedUpdates.status = updates.status;
+
+    const fields = Object.keys(mappedUpdates)
       .map((key) => `${key} = ?`)
       .join(", ");
-    const values = Object.values(updates);
+    const values = Object.values(mappedUpdates);
     const stmt = this.db.prepare(`
-      UPDATE time_entries 
+      UPDATE task_time_entries 
       SET ${fields}
       WHERE id = ?
     `);
@@ -204,7 +229,7 @@ class DatabaseService {
     return this.getTimeEntry(id);
   }
   deleteTimeEntry(id) {
-    const stmt = this.db.prepare("DELETE FROM time_entries WHERE id = ?");
+    const stmt = this.db.prepare("DELETE FROM task_time_entries WHERE id = ?");
     return stmt.run(id);
   }
 
@@ -213,24 +238,24 @@ class DatabaseService {
     let query = `
       SELECT 
         COUNT(DISTINCT t.id) as task_count,
-        COUNT(te.id) as time_entry_count,
-        COALESCE(SUM(te.duration), 0) as total_time,
-        AVG(te.duration) as avg_time_per_entry
+        COUNT(tte.id) as time_entry_count,
+        COALESCE(SUM(tte.duration), 0) as total_time,
+        AVG(tte.duration) as avg_time_per_entry
       FROM projects p
       LEFT JOIN tasks t ON p.id = t.project_id
-      LEFT JOIN time_entries te ON t.id = te.task_id
+      LEFT JOIN task_time_entries tte ON t.id = tte.task_id
       WHERE p.id = ?
     `;
 
     const params = [projectId];
 
     if (startDate) {
-      query += " AND te.start_time >= ?";
+      query += " AND tte.started_at >= ?";
       params.push(startDate);
     }
 
     if (endDate) {
-      query += " AND te.start_time <= ?";
+      query += " AND tte.started_at <= ?";
       params.push(endDate);
     }
 

@@ -100,7 +100,7 @@ const TaskCard = ({ task }) => {
     >
       {/* 1. Context Badge: If it's a connected/related task from another project */}
       {!task.is_primary && (
-        <span 
+        <span
           className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border mb-1.5 self-start"
           style={{
             borderColor: task.primary_project_color || '#f59e0b',
@@ -128,7 +128,7 @@ const TaskCard = ({ task }) => {
               <span>{formatTime(task.created_at)}</span>
             </div>
             {
-              task.status === 'in-progress' && (
+              task.status === 'in-progress' ? (
                 <button
                   id='btnTrackTime'
                   className={`flex items-center px-2.5 py-1 text-xs font-medium
@@ -139,8 +139,15 @@ const TaskCard = ({ task }) => {
                   onClick={handleToggleTimer}
                 >
                   {renderTrackTimeStatusButton()}
-                  <p>{timeSpent}</p>
+                  <span>{timeSpent}</span>
                 </button>
+              ) : (
+                <span
+                  className="flex items-center px-2.5 py-1 text-xs font-medium
+                   text-golden-600 bg-blue-50 rounded-md"
+                >
+                  <span>{timeSpent}</span>
+                </span>
               )
             }
           </div>

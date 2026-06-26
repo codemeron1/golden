@@ -5,7 +5,8 @@ import TaskList from './components/TaskList';
 import TimeTracker from './components/TimeTracker';
 import CreateProjectModal from './components/CreateProjectModal';
 import CreateTaskModal from './components/TaskList/CreateTaskModal';
-import { Clock, FolderOpen, CheckSquare, Plus } from 'lucide-react';
+import ProjectTimeReport from './components/Reports/ProjectTimeReport';
+import { Clock, FolderOpen, CheckSquare, Plus, BarChart2 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 function App() {
@@ -61,6 +62,11 @@ function App() {
   const handleTaskSelect = (task) => {
     setSelectedTask(task);
     setCurrentView('tracker');
+  };
+
+  const handleViewReport = (project) => {
+    setSelectedProject(project);
+    setCurrentView('report');
   };
 
   const handleProjectCreated = () => {
@@ -120,6 +126,19 @@ function App() {
                 {selectedProject.name} Tasks
               </button>
             )}
+
+            {selectedProject && (
+              <button
+                onClick={() => setCurrentView('report')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${currentView === 'report'
+                  ? 'bg-golden-100 text-golden-800'
+                  : 'text-gray-600 hover:text-golden-700'
+                  }`}
+              >
+                <BarChart2 className="h-4 w-4" />
+                Report
+              </button>
+            )}
           </div>
         </header>
 
@@ -164,6 +183,7 @@ function App() {
           <ProjectList
             projects={projects}
             onProjectSelect={handleProjectSelect}
+            onViewReport={handleViewReport}
             onRefresh={loadProjects}
           />
         );
@@ -184,6 +204,15 @@ function App() {
             onEntryUpdate={() => {
               loadRunningEntry();
               loadTasks(selectedProject?.id);
+            }}
+          />
+        );
+      case 'report':
+        return (
+          <ProjectTimeReport
+            project={selectedProject}
+            onBack={() => {
+              setCurrentView('projects');
             }}
           />
         );
