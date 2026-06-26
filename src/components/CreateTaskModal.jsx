@@ -9,7 +9,10 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
     name: '',
     description: '',
     subTasks: '',
-    status: 'todo'
+    status: 'todo',
+    category: 'Development',
+    billable: true,
+    due_date: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,7 +31,10 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
         name: formData.name.trim(),
         description: formData.description.trim(),
         subTasks: formData.subTasks.trim(),
-        status: formData.status
+        status: formData.status,
+        category: formData.category,
+        billable: formData.billable,
+        due_date: formData.due_date || null
       }
       await window.electronAPI.db.createTask({ taskData: taskData });
       onTaskCreated();
@@ -135,6 +141,50 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
                 ))
               }
             </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <select
+                value={formData.category}
+                onChange={(e) => handleChange('category', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500 focus:border-transparent"
+              >
+                <option value="Development">Development</option>
+                <option value="Design">Design</option>
+                <option value="Meeting">Meeting</option>
+                <option value="Planning">Planning</option>
+                <option value="Admin">Admin</option>
+                <option value="Marketing">Marketing</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Due Date
+              </label>
+              <input
+                type="date"
+                value={formData.due_date}
+                onChange={(e) => handleChange('due_date', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500 focus:border-transparent text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="billable"
+              checked={formData.billable}
+              onChange={(e) => handleChange('billable', e.target.checked)}
+              className="h-4 w-4 text-golden-500 focus:ring-golden-500 border-gray-300 rounded"
+            />
+            <label htmlFor="billable" className="ml-2 block text-sm text-gray-900 font-medium">
+              Billable Task (Client Work)
+            </label>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">

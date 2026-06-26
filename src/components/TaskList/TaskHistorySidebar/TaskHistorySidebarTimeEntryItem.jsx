@@ -5,6 +5,7 @@ import {
   formatTime,
   toLocalISOString
 } from '../../../utils/timeUtils';
+import { toast } from 'sonner';
 
 // Sub-component for each Time Entry item
 export default function TaskHistorySidebarTimeEntryItem({ entry, index, onRefresh }) {
@@ -23,13 +24,17 @@ export default function TaskHistorySidebarTimeEntryItem({ entry, index, onRefres
         ended_at: editForm.ended_at ? new Date(editForm.ended_at).toISOString() : null,
         description: editForm.description
       };
-      const success = await window.electronAPI.db.updateSpecificTaskTimeEntry(entry.id, updates);
-      if (success) {
+      const res = await window.electronAPI.db.updateSpecificTaskTimeEntry(entry.id, updates);
+      if (res && res.success) {
         setIsEditing(false);
         onRefresh();
+        toast.success("Time entry updated successfully");
+      } else {
+        toast.error(res?.error || "Failed to update time entry");
       }
     } catch (err) {
       console.error(err);
+      toast.error("An error occurred while saving the time entry.");
     }
   };
 
@@ -39,9 +44,13 @@ export default function TaskHistorySidebarTimeEntryItem({ entry, index, onRefres
         const success = await window.electronAPI.db.deleteSpecificTaskTimeEntry(entry.id);
         if (success) {
           onRefresh();
+          toast.success("Time entry deleted successfully");
+        } else {
+          toast.error("Failed to delete time entry");
         }
       } catch (err) {
         console.error(err);
+        toast.error("An error occurred while deleting the time entry.");
       }
     }
   };

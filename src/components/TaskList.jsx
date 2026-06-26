@@ -98,7 +98,7 @@ function TaskListBody({ tasks, project, onTaskSelect, onRefresh }) {
            />
       }
 
-      {selectedTask && <TaskHistorySidebar task={selectedTask} onClose={onCloseHistory} />}
+      {selectedTask && <TaskHistorySidebar task={selectedTask} onClose={onCloseHistory} onRefresh={onRefresh} />}
 
     </div >
   );

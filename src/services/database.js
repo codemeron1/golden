@@ -60,6 +60,9 @@ class DatabaseService {
         name TEXT NOT NULL,
         description TEXT,
         status TEXT DEFAULT 'todo',
+        category TEXT DEFAULT 'Development',
+        billable INTEGER DEFAULT 1,
+        due_date DATETIME,
         started_at DATETIME,
         ended_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -67,6 +70,18 @@ class DatabaseService {
         FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
       )
     `);
+
+    // Migration logic for existing installations
+    const taskColumns = this.db.prepare("PRAGMA table_info(tasks);").all();
+    if (!taskColumns.find((col) => col.name === "category")) {
+      this.db.exec("ALTER TABLE tasks ADD COLUMN category TEXT DEFAULT 'Development';");
+    }
+    if (!taskColumns.find((col) => col.name === "billable")) {
+      this.db.exec("ALTER TABLE tasks ADD COLUMN billable INTEGER DEFAULT 1;");
+    }
+    if (!taskColumns.find((col) => col.name === "due_date")) {
+      this.db.exec("ALTER TABLE tasks ADD COLUMN due_date DATETIME;");
+    }
     // create task_time_entries table
     this.db.exec(`
         CREATE TABLE IF NOT EXISTS task_time_entries (

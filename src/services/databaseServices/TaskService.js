@@ -5,13 +5,21 @@ class TaskService {
   // Task methods
   createTask(taskData) {
     try {
-      const { projectId, name, description, subTasks, status, connectedProjects } = taskData;
+      const { projectId, name, description, subTasks, status, connectedProjects, category, billable, due_date } = taskData;
       //create task
       const stmt = this.db.prepare(`
-      INSERT INTO tasks (project_id, name, description, status)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO tasks (project_id, name, description, status, category, billable, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-      const result = stmt.run(projectId, name, description, status);
+      const result = stmt.run(
+        projectId, 
+        name, 
+        description, 
+        status, 
+        category || 'Development', 
+        billable !== undefined ? (billable ? 1 : 0) : 1, 
+        due_date || null
+      );
       const taskId = result.lastInsertRowid;
 
       //insert connected projects into tasks_connected_projects
@@ -234,6 +242,16 @@ class TaskService {
     try {
       const { started_at, ended_at, description } = updates;
 
+      const entry = this.getSpecificTimeEntry(id);
+      if (!entry) {
+        return { success: false, error: "Time entry not found" };
+      }
+
+      const validation = this.checkOverlap(entry.task_id, started_at, ended_at, id);
+      if (!validation.isValid) {
+        return { success: false, error: validation.error };
+      }
+
       // Auto-compute duration in seconds if start and end times are provided
       let duration = null;
       if (started_at && ended_at) {
@@ -247,10 +265,10 @@ class TaskService {
         WHERE id = ?
       `);
       stmt.run(started_at, ended_at, duration, description, id);
-      return true;
+      return { success: true };
     } catch (error) {
       console.error("Error updating specific task time entry:", error);
-      return false;
+      return { success: false, error: "Failed to update time entry." };
     }
   }
   deleteSpecificTimeEntry(id) {
@@ -263,6 +281,103 @@ class TaskService {
     } catch (error) {
       console.error("Error deleting specific task time entry:", error);
       return false;
+    }
+  }
+
+  checkOverlap(taskId, startedAt, endedAt, excludeEntryId = null) {
+    const newStart = new Date(startedAt).getTime();
+    if (isNaN(newStart)) {
+      return { isValid: false, error: "Invalid start date format" };
+    }
+
+    const newEnd = endedAt ? new Date(endedAt).getTime() : Date.now();
+    if (endedAt && isNaN(newEnd)) {
+      return { isValid: false, error: "Invalid end date format" };
+    }
+
+    if (endedAt && newStart >= newEnd) {
+      return { isValid: false, error: "Start time must be before end time" };
+    }
+
+    const queryProjects = `
+      SELECT project_id FROM tasks WHERE id = ?
+      UNION
+      SELECT project_id FROM tasks_connected_projects WHERE task_id = ?
+    `;
+
+    try {
+      const projectRows = this.db.prepare(queryProjects).all(taskId, taskId);
+      const projectIds = projectRows.map(r => r.project_id);
+
+      if (projectIds.length === 0) {
+        return { isValid: true };
+      }
+
+      const placeholders = projectIds.map(() => '?').join(',');
+      const queryEntries = `
+        SELECT tte.id, tte.started_at, tte.ended_at, tte.task_id, t.name AS task_name
+        FROM task_time_entries tte
+        JOIN tasks t ON tte.task_id = t.id
+        LEFT JOIN tasks_connected_projects tcp ON t.id = tcp.task_id
+        WHERE t.project_id IN (${placeholders}) OR tcp.project_id IN (${placeholders})
+      `;
+
+      const bindParams = [...projectIds, ...projectIds];
+      const entries = this.db.prepare(queryEntries).all(...bindParams);
+
+      for (const entry of entries) {
+        if (excludeEntryId && entry.id === excludeEntryId) {
+          continue;
+        }
+
+        const existStart = new Date(entry.started_at).getTime();
+        const existEnd = entry.ended_at ? new Date(entry.ended_at).getTime() : Date.now();
+
+        if (isNaN(existStart) || isNaN(existEnd)) {
+          continue;
+        }
+
+        if (newStart < existEnd && newEnd > existStart) {
+          const startStr = new Date(entry.started_at).toLocaleString();
+          const endStr = entry.ended_at ? new Date(entry.ended_at).toLocaleString() : 'Running';
+          return {
+            isValid: false,
+            error: `Overlaps with task "${entry.task_name}" (${startStr} - ${endStr})`
+          };
+        }
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      console.error("Error checking overlap:", error);
+      return { isValid: false, error: "Database error during overlap check: " + error.message };
+    }
+  }
+
+  createManualTimeEntry(taskId, startedAt, endedAt, description) {
+    try {
+      const validation = this.checkOverlap(taskId, startedAt, endedAt);
+      if (!validation.isValid) {
+        return { success: false, error: validation.error };
+      }
+
+      const start = new Date(startedAt).getTime();
+      const end = new Date(endedAt).getTime();
+      const duration = Math.max(0, Math.floor((end - start) / 1000));
+
+      const stmt = this.db.prepare(`
+        INSERT INTO task_time_entries (task_id, started_at, ended_at, duration, notes, status)
+        VALUES (?, ?, ?, ?, ?, 'stopped')
+      `);
+      const result = stmt.run(taskId, startedAt, endedAt, duration, description);
+
+      return {
+        success: true,
+        entry: this.getSpecificTimeEntry(result.lastInsertRowid)
+      };
+    } catch (error) {
+      console.error("Error creating manual time entry:", error);
+      return { success: false, error: "Failed to save manual time entry." };
     }
   }
 }

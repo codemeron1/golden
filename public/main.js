@@ -214,6 +214,10 @@ function setupIpcHandlers() {
     return db.endTimeEntry(id);
   });
 
+  ipcMain.handle("db-create-manual-time-entry", async (event, taskId, startedAt, endedAt, description) => {
+    return db.TaskService.createManualTimeEntry(taskId, startedAt, endedAt, description);
+  });
+
   ipcMain.handle("db-get-time-entries", async (event, taskId, limit) => {
     return db.getTimeEntries(taskId, limit);
   });
@@ -263,5 +267,30 @@ function setupIpcHandlers() {
       return db.ReportService.getProjectTimeSummary(projectId, startDate, endDate);
     },
   );
+
+  ipcMain.handle("db-get-dashboard-data", async (event, startDate, endDate, trendMode) => {
+    return db.ReportService.getDashboardData(startDate, endDate, trendMode);
+  });
+
+  ipcMain.handle("db-export-time-entries-csv", async (event, startDate, endDate) => {
+    try {
+      const csvContent = db.ReportService.exportTimeEntriesCSV(startDate, endDate);
+      const { dialog } = require("electron");
+      const fs = require("fs");
+      const result = await dialog.showSaveDialog({
+        title: 'Export Time Entries',
+        defaultPath: `time_entries_${startDate.split('T')[0]}_to_${endDate.split('T')[0]}.csv`,
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+      });
+      if (!result.canceled && result.filePath) {
+        fs.writeFileSync(result.filePath, csvContent, 'utf-8');
+        return { success: true, filePath: result.filePath };
+      }
+      return { success: false, message: 'Export canceled' };
+    } catch (error) {
+      console.error("IPC CSV export error:", error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 

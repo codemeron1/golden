@@ -69,6 +69,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     startTimeEntry: (taskId, description) =>
       ipcRenderer.invoke("db-start-time-entry", taskId, description),
     endTimeEntry: (id) => ipcRenderer.invoke("db-end-time-entry", id),
+    createManualTimeEntry: (taskId, startedAt, endedAt, description) =>
+      ipcRenderer.invoke("db-create-manual-time-entry", taskId, startedAt, endedAt, description),
     endRunningTimeEntries: (taskId) =>
       ipcRenderer.invoke("db-end-running-time-entries", taskId),
     getTimeEntries: (taskId, limit) =>
@@ -87,5 +89,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke("db-get-project-time-report", projectId, startDate, endDate),
     getProjectTimeSummary: (projectId, startDate, endDate) =>
       ipcRenderer.invoke("db-get-project-time-summary", projectId, startDate, endDate),
+    getDashboardData: (startDate, endDate, trendMode) =>
+      ipcRenderer.invoke("db-get-dashboard-data", startDate, endDate, trendMode),
+    exportTimeEntriesCSV: (startDate, endDate) =>
+      ipcRenderer.invoke("db-export-time-entries-csv", startDate, endDate),
   },
 });

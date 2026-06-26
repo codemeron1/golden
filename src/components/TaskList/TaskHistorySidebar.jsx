@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, CalendarDays, Activity, Timer } from 'lucide-react';
+import { X, Clock, CalendarDays, Activity, Timer, Plus } from 'lucide-react';
 import {
   formatDuration,
   formatTime,
   formatTimeShort,
   formatRelativeTime,
-  calculateDuration
+  calculateDuration,
+  toLocalISOString
 } from '../../utils/timeUtils';
 import { useTaskHistory } from '../../context/TaskHistoryContext';
 import TaskHistorySidebarTimeEntryItem from "./TaskHistorySidebar/TaskHistorySidebarTimeEntryItem";
+import { toast } from 'sonner';
 
 const STATUS_STYLES = {
   todo: { label: 'To Do', dot: 'bg-slate-400', badge: 'bg-slate-100 text-slate-700' },
@@ -51,12 +53,72 @@ function Skeleton() {
   );
 }
 
-export default function TaskHistorySidebar({ task, onClose }) {
+export default function TaskHistorySidebar({ task, onClose, onRefresh }) {
   const [taskDetails, setTaskDetails] = useState(null);
   const [timeEntries, setTimeEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalSeconds, setTotalSeconds] = useState(0);
   const { timeDuration } = useTaskHistory();
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({
+    started_at: '',
+    ended_at: '',
+    description: ''
+  });
+
+  const handleOpenAddForm = () => {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    setAddForm({
+      started_at: toLocalISOString(oneHourAgo),
+      ended_at: toLocalISOString(now),
+      description: ''
+    });
+    setShowAddForm(true);
+  };
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+    if (!addForm.started_at || !addForm.ended_at) {
+      toast.error("Please fill in both start and end times.");
+      return;
+    }
+
+    const start = new Date(addForm.started_at);
+    const end = new Date(addForm.ended_at);
+
+    if (start.getTime() >= end.getTime()) {
+      toast.error("Start time must be before end time.");
+      return;
+    }
+
+    try {
+      const res = await window.electronAPI.db.createManualTimeEntry(
+        task.id,
+        start.toISOString(),
+        end.toISOString(),
+        addForm.description
+      );
+
+      if (res && res.success) {
+        toast.success("Manual time entry added successfully.");
+        setAddForm({
+          started_at: '',
+          ended_at: '',
+          description: ''
+        });
+        setShowAddForm(false);
+        loadTaskData();
+        if (onRefresh) onRefresh();
+      } else {
+        toast.error(res?.error || "Failed to add manual time entry.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("An error occurred while saving the time entry.");
+    }
+  };
 
   const loadTaskData = async () => {
     try {
@@ -173,7 +235,80 @@ export default function TaskHistorySidebar({ task, onClose }) {
 
               {/* Time Entries */}
               <div className="px-5 py-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Time Entries</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Time Entries</p>
+                  {!showAddForm && (
+                    <button
+                      onClick={handleOpenAddForm}
+                      className="flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add Manual Entry
+                    </button>
+                  )}
+                </div>
+
+                {showAddForm && (
+                  <form onSubmit={handleAddSubmit} className="mb-4 p-3 bg-blue-50/40 border border-blue-100 rounded-lg space-y-3">
+                    <p className="text-[11px] font-semibold text-blue-700 uppercase tracking-wide">New Manual Entry</p>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div>
+                        <label className="block text-gray-500 mb-0.5">Start Time</label>
+                        <input
+                          type="datetime-local"
+                          step="1"
+                          required
+                          value={addForm.started_at}
+                          onChange={e => setAddForm(prev => ({ ...prev, started_at: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-500 mb-0.5">End Time</label>
+                        <input
+                          type="datetime-local"
+                          step="1"
+                          required
+                          value={addForm.ended_at}
+                          onChange={e => setAddForm(prev => ({ ...prev, ended_at: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="text-[10px]">
+                      <label className="block text-gray-500 mb-0.5">Description / Notes</label>
+                      <input
+                        type="text"
+                        placeholder="What did you work on?"
+                        value={addForm.description}
+                        onChange={e => setAddForm(prev => ({ ...prev, description: e.target.value }))}
+                        className="w-full border border-gray-200 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 text-xs pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddForm(false);
+                          setAddForm({ started_at: '', ended_at: '', description: '' });
+                        }}
+                        className="px-2.5 py-1.5 text-gray-500 hover:bg-gray-100 rounded transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors"
+                      >
+                        Save Entry
+                      </button>
+                    </div>
+                  </form>
+                )}
+
                 {timeEntries?.length > 0 ? (
                   <ul className="space-y-2">
                     {timeEntries.map((entry, i) => {
@@ -181,7 +316,10 @@ export default function TaskHistorySidebar({ task, onClose }) {
                         key={`history-task-time-entry-${i}`}
                         entry={entry}
                         index={i}
-                        onRefresh={loadTaskData} />
+                        onRefresh={() => {
+                          loadTaskData();
+                          if (onRefresh) onRefresh();
+                        }} />
                     })}
                   </ul>
                 ) : (
