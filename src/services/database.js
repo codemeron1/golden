@@ -38,7 +38,6 @@ class DatabaseService {
       throw error;
     }
   }
-
   initializeTables() {
     // Create projects table
     this.db.exec(`
@@ -89,19 +88,6 @@ class DatabaseService {
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
             UNIQUE(task_id, project_id)
         );
-    `);
-    // Create time_entries table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS time_entries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id INTEGER NOT NULL,
-        start_time DATETIME NOT NULL,
-        end_time DATETIME,
-        duration INTEGER DEFAULT 0,
-        description TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
-      )
     `);
 
     // migration or updates for tables

@@ -1,5 +1,5 @@
-class ProjectService  {
-    constructor(db) {
+class ProjectService {
+  constructor(db) {
     this.db = db;
   }
 
@@ -15,11 +15,9 @@ class ProjectService  {
   getProjects() {
     const stmt = this.db.prepare(`
       SELECT p.*, 
-             COUNT(t.id) as task_count,
-             COALESCE(SUM(te.duration), 0) as total_time
+             COUNT(t.id) as task_count
       FROM projects p
       LEFT JOIN tasks t ON p.id = t.project_id
-      LEFT JOIN time_entries te ON t.id = te.task_id
       GROUP BY p.id
       ORDER BY p.created_at DESC
     `);
