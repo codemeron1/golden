@@ -9,6 +9,7 @@ import { TaskHistoryProvider, useTaskHistory } from '../context/TaskHistoryConte
 function TaskListBody({ tasks, project, onTaskSelect, onRefresh }) {
   const [showMenu, setShowMenu] = useState(null);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
   const [taskStatusToAdd, setTaskStatusToAdd] = useState('');
   const { selectedTask, onCloseHistory } = useTaskHistory();
 
@@ -21,13 +22,6 @@ function TaskListBody({ tasks, project, onTaskSelect, onRefresh }) {
   const handleAddTask = (taskStatus) => {
     setShowCreateTaskModal(true);
     setTaskStatusToAdd(taskStatus)
-  }
-  const handleOnCloseCreateTaskModal = () => {
-    setShowCreateTaskModal(false);
-  }
-  const handleOnSaveTask = () => {
-    setShowCreateTaskModal(false);
-    if (onRefresh) onRefresh();
   }
   const handleTaskDrop = async (taskId, newStatus) => {
     try {
@@ -46,6 +40,22 @@ function TaskListBody({ tasks, project, onTaskSelect, onRefresh }) {
       onTaskSelect(task);
     } catch (error) {
       console.error('Error starting time entry:', error);
+    }
+  };
+  const handleEditTask = (task) => {
+    setEditingTask(task);
+  };
+  const handleDeleteTask = async (taskId) => {
+    if (window.confirm('Are you sure you want to delete this task? This will delete all associated time entries.')) {
+      try {
+        await window.electronAPI.db.deleteTask(taskId);
+        if (selectedTask && selectedTask.id === taskId) {
+          onCloseHistory();
+        }
+        if (onRefresh) onRefresh();
+      } catch (error) {
+        console.error('Error deleting task:', error);
+      }
     }
   };
 
@@ -73,6 +83,8 @@ function TaskListBody({ tasks, project, onTaskSelect, onRefresh }) {
                   onAddTask={() => handleAddTask(statusData.label)}
                   onQuickStart={handleQuickStart}
                   onTaskDrop={handleTaskDrop}
+                  onEdit={handleEditTask}
+                  onDelete={handleDeleteTask}
                 />
               )
             })
@@ -89,13 +101,21 @@ function TaskListBody({ tasks, project, onTaskSelect, onRefresh }) {
         )
       }
       {
-        showCreateTaskModal &&
+        (showCreateTaskModal || editingTask) &&
         <CreateTaskModal
-          project={project}
-          onClose={handleOnCloseCreateTaskModal}
-          onSave={handleOnSaveTask}
+          project={editingTask ? { id: editingTask.project_id, name: editingTask.primary_project_name, color: editingTask.primary_project_color } : project}
+          taskToEdit={editingTask}
+          onClose={() => {
+            setShowCreateTaskModal(false);
+            setEditingTask(null);
+          }}
+          onSave={() => {
+            setShowCreateTaskModal(false);
+            setEditingTask(null);
+            if (onRefresh) onRefresh();
+          }}
           taskStatusToAdd={taskStatusToAdd}
-           />
+        />
       }
 
       {selectedTask && <TaskHistorySidebar task={selectedTask} onClose={onCloseHistory} onRefresh={onRefresh} />}

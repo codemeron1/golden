@@ -39,7 +39,9 @@ export default function TaskStatusColumn({
   tasks = [],
   onAddTask,
   onTaskDrop,
-  onQuickStart }) {
+  onQuickStart,
+  onEdit,
+  onDelete }) {
   const theme = STATUS_THEMES[status] || STATUS_THEMES.todo;
 
   const handleDragOver = (e) => {
@@ -97,6 +99,8 @@ export default function TaskStatusColumn({
               key={`task-${task.id}`}
               task={task}
               onQuickStart={onQuickStart}
+              onEdit={onEdit}
+              onDelete={onDelete}
             />
           })
         )}

@@ -115,17 +115,60 @@ class TaskService {
     return taskDetailsResult;
   }
   updateTask(id, updates) {
-    const fields = Object.keys(updates)
-      .map((key) => `${key} = ?`)
-      .join(", ");
-    const values = Object.values(updates);
-    const stmt = this.db.prepare(`
-      UPDATE tasks 
-      SET ${fields}, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `);
-    stmt.run(...values, id);
-    return this.getSpecificTask(id);
+    try {
+      const { connectedProjects, projectId, subTasks, ...taskFields } = updates;
+      
+      if (projectId !== undefined) {
+        taskFields.project_id = projectId;
+      }
+
+      if (Object.keys(taskFields).length > 0) {
+        // Map billable from boolean to 1/0 if it is a boolean
+        if (taskFields.billable !== undefined) {
+          taskFields.billable = taskFields.billable ? 1 : 0;
+        }
+
+        const fields = Object.keys(taskFields)
+          .map((key) => `${key} = ?`)
+          .join(", ");
+        const values = Object.values(taskFields);
+        const stmt = this.db.prepare(`
+          UPDATE tasks 
+          SET ${fields}, updated_at = CURRENT_TIMESTAMP 
+          WHERE id = ?
+        `);
+        stmt.run(...values, id);
+      }
+
+      if (connectedProjects !== undefined) {
+        // Delete existing connected projects
+        const deleteStmt = this.db.prepare("DELETE FROM tasks_connected_projects WHERE task_id = ?");
+        deleteStmt.run(id);
+
+        if (connectedProjects && connectedProjects.length > 0) {
+          const task = this.getSpecificTask(id);
+          const primaryProjectId = task ? task.project_id : null;
+
+          const insertConnected = this.db.prepare(`
+            INSERT OR IGNORE INTO tasks_connected_projects (task_id, project_id)
+            VALUES (?, ?)
+          `);
+          const insertMany = this.db.transaction((taskId, projectIds) => {
+            for (const pId of projectIds) {
+              if (Number(pId) !== Number(primaryProjectId)) {
+                insertConnected.run(taskId, pId);
+              }
+            }
+          });
+          insertMany(id, connectedProjects);
+        }
+      }
+
+      return this.getSpecificTask(id);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      return false;
+    }
   }
   deleteTask(id) {
     const stmt = this.db.prepare("DELETE FROM tasks WHERE id = ?");

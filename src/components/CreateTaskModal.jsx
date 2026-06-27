@@ -153,12 +153,12 @@ function CreateTaskModal({ project, onClose, onTaskCreated }) {
                 onChange={(e) => handleChange('category', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-golden-500 focus:border-transparent"
               >
-                <option value="Development">Development</option>
-                <option value="Design">Design</option>
-                <option value="Meeting">Meeting</option>
-                <option value="Planning">Planning</option>
-                <option value="Admin">Admin</option>
-                <option value="Marketing">Marketing</option>
+                <option value="development">Development</option>
+                <option value="omsc">OMSC</option>
+                <option value="research">Research</option>
+                <option value="personal">Personal</option>
+                <option value="family">Family</option>
+                <option value="other">Other</option>
               </select>
             </div>
             <div>

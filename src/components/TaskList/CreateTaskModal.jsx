@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Check, ChevronDown } from 'lucide-react';
 
-export default function CreateTaskModal({ project, onClose, onSave, taskStatusToAdd = 'todo' }) {
+export default function CreateTaskModal({ project, onClose, onSave, taskStatusToAdd = 'todo', taskToEdit = null }) {
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    subTasks: '',
-    status: taskStatusToAdd,
-    connectedProjects: [],
-    category: 'Development',
-    billable: true,
-    due_date: ''
+    name: taskToEdit ? taskToEdit.name : '',
+    description: taskToEdit ? taskToEdit.description || '' : '',
+    subTasks: taskToEdit ? taskToEdit.subTasks || '' : '',
+    status: taskToEdit ? taskToEdit.status : taskStatusToAdd,
+    connectedProjects: taskToEdit ? (taskToEdit.connectedProjects || []).map(p => p.id) : [],
+    category: taskToEdit ? taskToEdit.category || 'Development' : 'Development',
+    billable: taskToEdit ? !!taskToEdit.billable : true,
+    due_date: taskToEdit ? (taskToEdit.due_date ? taskToEdit.due_date.split('T')[0] : '') : ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [allProjects, setAllProjects] = useState([]);
@@ -38,10 +38,15 @@ export default function CreateTaskModal({ project, onClose, onSave, taskStatusTo
         billable: formData.billable,
         due_date: formData.due_date || null
       }
-      await window.electronAPI.db.createTask({ taskData: taskData });
+      
+      if (taskToEdit) {
+        await window.electronAPI.db.updateTask(taskToEdit.id, taskData);
+      } else {
+        await window.electronAPI.db.createTask({ taskData: taskData });
+      }
       onSave();
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error(taskToEdit ? 'Error updating task:' : 'Error creating task:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -91,7 +96,9 @@ export default function CreateTaskModal({ project, onClose, onSave, taskStatusTo
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className='flex flex-row'>
-            <h2 className="text-xl font-semibold text-gray-900">Create New Task</h2>
+            <h2 className="text-xl font-semibold text-gray-900">
+              {taskToEdit ? 'Edit Task' : 'Create New Task'}
+            </h2>
             <p className="pl-2 text-sm text-emerald-600 mt-1">
               for <span className="font-medium">{project.name}</span>
             </p>
@@ -222,12 +229,12 @@ export default function CreateTaskModal({ project, onClose, onSave, taskStatusTo
                   onChange={(e) => handleChange('category', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm bg-white"
                 >
-                  <option value="Development">Development</option>
-                  <option value="Design">Design</option>
-                  <option value="Meeting">Meeting</option>
-                  <option value="Planning">Planning</option>
-                  <option value="Admin">Admin</option>
-                  <option value="Marketing">Marketing</option>
+                  <option value="development">Development</option>
+                  <option value="omsc">OMSC</option>
+                  <option value="research">Research</option>
+                  <option value="personal">Personal</option>
+                  <option value="family">Family</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
               <div>
@@ -272,7 +279,7 @@ export default function CreateTaskModal({ project, onClose, onSave, taskStatusTo
               className="px-6 py-2 bg-golden-500 hover:bg-golden-600 disabled:bg-gray-400
                 disabled:cursor-not-allowed text-white rounded-md transition-colors"
             >
-              {isSubmitting ? 'Creating...' : 'Save'}
+              {isSubmitting ? (taskToEdit ? 'Saving...' : 'Creating...') : (taskToEdit ? 'Save Changes' : 'Save')}
             </button>
           </div>
         </form>
