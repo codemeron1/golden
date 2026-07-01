@@ -132,48 +132,30 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
               <div className="flex items-start justify-between gap-1">
                 <h4 className="max-w-[95%] text-sm font-medium  text-gray-800 mb-1 text-wrap">{task.name}</h4>
 
-                {/* Options Menu */}
-                <div className="relative">
+                {/* edit and delete buttons */}
+                <div className="relative flex gap-1">
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setShowMenu(!showMenu);
+                      if (onEdit) onEdit(task);
                     }}
-                    className="p-1 rounded-full hover:bg-gray-200/70 transition-colors cursor-pointer"
-                    title="Task Options"
+                    className="flex items-center last:text-left text-xs text-gray-700 hover:bg-gray-50 cursor-pointer font-medium"
+                    title='Edit'
                   >
-                    <MoreVertical className="h-3.5 w-3.5 text-gray-500" />
+                    <Edit2 className="h-3 w-3 text-slate-500" />
                   </button>
-
-                  {showMenu && (
-                    <div className="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg z-30 border border-gray-200 py-1">
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setShowMenu(false);
-                          if (onEdit) onEdit(task);
-                        }}
-                        className="flex items-center space-x-2 w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50 cursor-pointer font-medium"
-                      >
-                        <Edit2 className="h-3 w-3 text-slate-500" />
-                        <span>Edit Task</span>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setShowMenu(false);
-                          if (onDelete) onDelete(task.id);
-                        }}
-                        className="flex items-center space-x-2 w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 cursor-pointer font-medium"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        <span>Delete Task</span>
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (onDelete) onDelete(task.id);
+                    }}
+                    className="flex items-centertext-left text-xs text-red-600 hover:bg-red-50 cursor-pointer font-medium"
+                    title='Delete'
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 </div>
               </div>
 
